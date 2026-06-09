@@ -85,24 +85,40 @@ export default function GameBoard({ room, game, myId, onLeave }) {
 
   // Aviso de descarte: cuando otro jugador se descarta, mostramos un mensaje al
   // resto ANTES del cambio de turno (sustituye brevemente a la línea de turno).
-  const lastDiscardN = useRef(null);
+  // Avisos derivados de lastAction (descarte y jugada sobre un héroe). Un único
+  // contador monótono `n` evita repetir avisos y reproducir los anteriores al cargar.
+  const seenActionN = useRef(null);
   const [discardActor, setDiscardActor] = useState(null);
+  const [playFx, setPlayFx] = useState(null);
   useEffect(() => {
     const la = game.lastAction;
-    if (!la || la.kind !== 'discard') return;
-    if (lastDiscardN.current === null) {
-      lastDiscardN.current = la.n; // primera carga: no avisar de descartes anteriores
+    if (!la) return;
+    if (seenActionN.current === null) {
+      seenActionN.current = la.n; // primera carga: no reproducir avisos anteriores
       return;
     }
-    if (la.n === lastDiscardN.current) return;
-    lastDiscardN.current = la.n;
-    if (la.actorId !== myId) setDiscardActor(la.actorId);
+    if (la.n <= seenActionN.current) return;
+    seenActionN.current = la.n;
+    if (la.kind === 'discard') {
+      if (la.actorId !== myId) setDiscardActor(la.actorId);
+    } else if (la.kind === 'play' && la.target?.heroId && la.card) {
+      const el = boardRef.current?.querySelector(`[data-hero="${la.target.heroId}"]`);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        setPlayFx({ card: la.card, rect: r, kind: la.card.type, seq: la.n });
+      }
+    }
   }, [game, myId]);
   useEffect(() => {
     if (!discardActor) return undefined;
     const t = setTimeout(() => setDiscardActor(null), 2300);
     return () => clearTimeout(t);
   }, [discardActor]);
+  useEffect(() => {
+    if (!playFx) return undefined;
+    const t = setTimeout(() => setPlayFx(null), 1000);
+    return () => clearTimeout(t);
+  }, [playFx]);
 
   const handCards = (game.hand || []).filter((c) => !discardSet.has(c.id));
   const selectedCard = handCards.find((c) => c.id === selectedId) || null;
@@ -362,6 +378,26 @@ export default function GameBoard({ room, game, myId, onLeave }) {
           <Card card={dragCard} fluid />
         </div>
       )}
+
+      {/* Efecto: la carta jugada (villano/poder/aliado/acción) actúa sobre el héroe objetivo */}
+      {playFx &&
+        createPortal(
+          <div
+            key={playFx.seq}
+            className={`play-fx play-fx--${playFx.kind}`}
+            style={{
+              left: playFx.rect.left + playFx.rect.width / 2,
+              top: playFx.rect.top + playFx.rect.height / 2,
+              width: Math.max(playFx.rect.width, 72),
+            }}
+          >
+            <span className="play-fx-burst" />
+            <span className="play-fx-card">
+              <Card card={playFx.card} fluid />
+            </span>
+          </div>,
+          document.body
+        )}
 
       {/* Héroes destruidos: se encogen con el mensaje "Eliminada" */}
       {dying.map((d) => [

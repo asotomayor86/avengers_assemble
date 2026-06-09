@@ -861,6 +861,75 @@ body.celebrate::before {
   filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.55));
 }
 
+/* Efecto al jugar una carta sobre un héroe: la carta se abalanza sobre el objetivo
+   con un destello del color temático de su tipo. */
+.play-fx {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  z-index: 130;
+  pointer-events: none;
+}
+.play-fx-card {
+  display: block;
+  width: 100%;
+  animation: play-fx-card 0.95s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+}
+@keyframes play-fx-card {
+  0% {
+    opacity: 0;
+    transform: scale(2.1) translateY(-26px) rotate(-6deg);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1.55) translateY(0) rotate(0deg);
+  }
+  68% {
+    opacity: 1;
+    transform: scale(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+.play-fx-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 78%;
+  height: 78%;
+  transform: translate(-50%, -50%);
+  border-radius: 16px;
+  opacity: 0;
+  animation: play-fx-burst 0.95s ease forwards;
+}
+@keyframes play-fx-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  30% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.2);
+  }
+}
+.play-fx--villain .play-fx-burst {
+  box-shadow: 0 0 30px 14px rgba(225, 75, 74, 0.9);
+}
+.play-fx--power .play-fx-burst {
+  box-shadow: 0 0 30px 14px rgba(79, 174, 79, 0.85);
+}
+.play-fx--ally .play-fx-burst {
+  box-shadow: 0 0 30px 14px rgba(212, 175, 55, 0.9);
+}
+.play-fx--action .play-fx-burst {
+  box-shadow: 0 0 30px 14px rgba(150, 99, 221, 0.9);
+}
+
 /* Barra de acción */
 .action-bar {
   display: flex;

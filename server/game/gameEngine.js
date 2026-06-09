@@ -103,6 +103,26 @@ function log(state, events, text) {
   events.push({ type: 'log', ...entry });
 }
 
+// Contador monótono para `lastAction` (lo usa el cliente para detectar avisos nuevos
+// —descarte, jugada sobre un héroe— sin repetirlos ni mostrar los anteriores al cargar).
+function nextActionSeq(state) {
+  state.actionSeq = (state.actionSeq || 0) + 1;
+  return state.actionSeq;
+}
+
+/** Serialización mínima de una carta para enviarla en `lastAction` (animaciones). */
+function fxCard(card) {
+  return {
+    id: card.id,
+    type: card.type,
+    name: card.name,
+    color: card.color,
+    colors: card.colors,
+    effect: card.effect,
+    imageUrl: card.imageUrl,
+  };
+}
+
 function name(state, playerId) {
   return state.players[playerId]?.nickname || '¿?';
 }
@@ -187,8 +207,8 @@ function handleDiscard(state, action, playerId, events) {
   discardCards(state, removed);
   log(state, events, `${name(state, playerId)} descarta ${removed.length} carta(s).`);
   // Marca el resultado de la acción: lo usa el cliente para avisar al resto del
-  // descarte antes de mostrar el cambio de turno. `n` es monotónico (seq del log).
-  state.lastAction = { kind: 'discard', actorId: playerId, count: removed.length, n: state.logSeq };
+  // descarte antes de mostrar el cambio de turno.
+  state.lastAction = { kind: 'discard', actorId: playerId, count: removed.length, n: nextActionSeq(state) };
   return finishTurn(state, playerId, false, events);
 }
 
@@ -331,6 +351,17 @@ function validateActionCard(state, playerId, card, target) {
 // ---------------------------------------------------------------------------
 
 function resolvePlay(state, playerId, card, target, events) {
+  // Si la carta se juega SOBRE un héroe (villano/poder/aliado/acción dirigida),
+  // marcamos la jugada para que el cliente anime la carta actuando sobre ese héroe.
+  if (target && target.heroId) {
+    state.lastAction = {
+      kind: 'play',
+      actorId: playerId,
+      card: fxCard(card),
+      target: { ownerId: target.ownerId, heroId: target.heroId },
+      n: nextActionSeq(state),
+    };
+  }
   switch (card.type) {
     case CARD_TYPE.HERO:
       return resolveHero(state, playerId, card, events);
