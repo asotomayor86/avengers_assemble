@@ -101,12 +101,28 @@ export default function GameBoard({ room, game, myId, onLeave }) {
     seenActionN.current = la.n;
     if (la.kind === 'discard') {
       if (la.actorId !== myId) setDiscardActor(la.actorId);
-    } else if (la.kind === 'play' && la.target?.heroId && la.card) {
-      const el = boardRef.current?.querySelector(`[data-hero="${la.target.heroId}"]`);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        setPlayFx({ card: la.card, rect: r, kind: la.card.type, seq: la.n });
+    } else if (la.kind === 'play' && la.card) {
+      let pos = null;
+      if (la.target?.heroId) {
+        // Sobre el héroe objetivo.
+        const el = boardRef.current?.querySelector(`[data-hero="${la.target.heroId}"]`);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          pos = { x: r.left + r.width / 2, y: r.top + r.height / 2, w: Math.max(r.width, 72) };
+        }
+      } else if (la.target?.ownerId) {
+        // Sin héroe (Wanda, Viuda Negra): sobre el lado derecho de la zona del afectado.
+        const el = boardRef.current?.querySelector(`[data-player="${la.target.ownerId}"]`);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          pos = {
+            x: r.left + r.width * 0.72,
+            y: r.top + r.height / 2,
+            w: Math.min(Math.max(r.height * 0.82, 60), 120),
+          };
+        }
       }
+      if (pos) setPlayFx({ card: la.card, pos, kind: la.card.type, seq: la.n });
     }
   }, [game, myId]);
   useEffect(() => {
@@ -385,11 +401,7 @@ export default function GameBoard({ room, game, myId, onLeave }) {
           <div
             key={playFx.seq}
             className={`play-fx play-fx--${playFx.kind}`}
-            style={{
-              left: playFx.rect.left + playFx.rect.width / 2,
-              top: playFx.rect.top + playFx.rect.height / 2,
-              width: Math.max(playFx.rect.width, 72),
-            }}
+            style={{ left: playFx.pos.x, top: playFx.pos.y, width: playFx.pos.w }}
           >
             <span className="play-fx-burst" />
             <span className="play-fx-card">

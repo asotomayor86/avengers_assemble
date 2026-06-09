@@ -380,6 +380,14 @@ function resolvePlay(state, playerId, card, target, events) {
 
 function resolveHero(state, playerId, card, events) {
   state.teams[playerId].push(newSlot(card));
+  // Efecto al aparecer el héroe por primera vez (sobre su propio slot recién creado).
+  state.lastAction = {
+    kind: 'play',
+    actorId: playerId,
+    card: fxCard(card),
+    target: { ownerId: playerId, heroId: card.id },
+    n: nextActionSeq(state),
+  };
   const extraTurn = card.color === 'multicolor';
   log(state, events, `${name(state, playerId)} pone a ${card.name} en su equipo.`);
   return { extraTurn };
@@ -570,6 +578,15 @@ function resolveAction(state, playerId, card, target, events) {
       break;
     case 'swap':
       resolveSwap(state, playerId, target, events);
+      // Wanda no actúa sobre un héroe concreto: el efecto se muestra sobre la zona
+      // (lado derecho) de la persona con la que se intercambia el equipo.
+      state.lastAction = {
+        kind: 'play',
+        actorId: playerId,
+        card: fxCard(card),
+        target: { ownerId: target.ownerId },
+        n: nextActionSeq(state),
+      };
       break;
     default:
       throw new GameError('Acción desconocida.');
@@ -715,6 +732,15 @@ function startSpy(state, actorId, card, target, events) {
   }
   if (!state.hands[target.victimId]) throw new GameError('Ese jugador no existe.');
   state.pending = { kind: 'spy', actorId, victimId: target.victimId, card };
+  // Viuda Negra no actúa sobre un héroe: el efecto se muestra sobre la zona (lado
+  // derecho) de la persona espiada.
+  state.lastAction = {
+    kind: 'play',
+    actorId,
+    card: fxCard(card),
+    target: { ownerId: target.victimId },
+    n: nextActionSeq(state),
+  };
   log(state, events, `🕵️ ${name(state, actorId)} espía la mano de ${name(state, target.victimId)}.`);
   events.push({ type: 'spy-window', actorId, victimId: target.victimId });
   return { state, events };

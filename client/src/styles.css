@@ -917,6 +917,9 @@ body.celebrate::before {
     transform: translate(-50%, -50%) scale(2.2);
   }
 }
+.play-fx--hero .play-fx-burst {
+  box-shadow: 0 0 30px 14px rgba(60, 150, 230, 0.9);
+}
 .play-fx--villain .play-fx-burst {
   box-shadow: 0 0 30px 14px rgba(225, 75, 74, 0.9);
 }
