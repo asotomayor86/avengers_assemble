@@ -198,10 +198,10 @@ export default function GameBoard({ room, game, myId, onLeave }) {
         <div className="board-counts">
           <span title="Mazo">🂠 {game.deckCount}</span>
           <span title="Descarte">🗑 {game.discardCount}</span>
-          <button className="btn btn-ghost btn-sm" onClick={onLeave}>
-            Salir
-          </button>
         </div>
+        <button className="btn btn-ghost btn-sm board-leave" onClick={onLeave}>
+          Salir
+        </button>
       </header>
 
       {game.status === 'playing' && (
