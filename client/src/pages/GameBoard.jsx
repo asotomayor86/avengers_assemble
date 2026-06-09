@@ -140,6 +140,27 @@ export default function GameBoard({ room, game, myId, onLeave }) {
     return () => clearTimeout(t);
   }, [playFx]);
 
+  // Chasquido: efecto "bomba" a pantalla completa ANTES de la selección de héroes.
+  // useLayoutEffect (no useEffect) para ocultar el modal de selección sin parpadeo.
+  const snapSeen = useRef(null);
+  const [snapFx, setSnapFx] = useState(null);
+  useLayoutEffect(() => {
+    const la = game.lastAction;
+    if (!la || la.kind !== 'snap') return;
+    if (snapSeen.current === null) {
+      snapSeen.current = la.n;
+      return;
+    }
+    if (la.n === snapSeen.current) return;
+    snapSeen.current = la.n;
+    setSnapFx({ card: la.card, seq: la.n });
+  }, [game]);
+  useEffect(() => {
+    if (!snapFx) return undefined;
+    const t = setTimeout(() => setSnapFx(null), 1500);
+    return () => clearTimeout(t);
+  }, [snapFx]);
+
   const handCards = (game.hand || []).filter((c) => !discardSet.has(c.id));
   const selectedCard = handCards.find((c) => c.id === selectedId) || null;
 
@@ -372,10 +393,10 @@ export default function GameBoard({ room, game, myId, onLeave }) {
           action={<button className="btn btn-ghost btn-sm" onClick={() => send({ type: 'retarget', skip: true })}>Descartar sin objetivo</button>}
         />
       )}
-      {pending?.kind === 'snap' && pending.needsMe && (
+      {pending?.kind === 'snap' && pending.needsMe && !snapFx && (
         <SnapModal pending={pending} team={game.teams[myId] || []} onSubmit={send} />
       )}
-      {pending?.kind === 'snap' && !pending.needsMe && (
+      {pending?.kind === 'snap' && !pending.needsMe && !snapFx && (
         <Banner text={`Chasquido de ${nick(pending.actorId)}: esperando elecciones…`} />
       )}
       {pending?.kind === 'spy' && pending.isActor && (
@@ -411,6 +432,17 @@ export default function GameBoard({ room, game, myId, onLeave }) {
             <span className="play-fx-card">
               <Card card={playFx.card} fluid />
             </span>
+          </div>,
+          document.body
+        )}
+
+      {/* Chasquido: bomba a pantalla completa antes de elegir los héroes a eliminar */}
+      {snapFx &&
+        createPortal(
+          <div className="snap-fx">
+            <div className="snap-fx-card">
+              <Card card={snapFx.card} fluid />
+            </div>
           </div>,
           document.body
         )}

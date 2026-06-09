@@ -933,6 +933,54 @@ body.celebrate::before {
   box-shadow: 0 0 30px 14px rgba(150, 99, 221, 0.9);
 }
 
+/* Chasquido (Guantelete): bomba a pantalla completa, ocupa casi toda la zona de juego */
+.snap-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: snap-fx-bg 1.5s ease forwards;
+}
+@keyframes snap-fx-bg {
+  0% {
+    background: radial-gradient(circle, rgba(108, 58, 166, 0) 0%, rgba(0, 0, 0, 0) 100%);
+  }
+  22% {
+    background: radial-gradient(circle, rgba(108, 58, 166, 0.6) 0%, rgba(0, 0, 0, 0.55) 75%);
+  }
+  100% {
+    background: radial-gradient(circle, rgba(108, 58, 166, 0) 0%, rgba(0, 0, 0, 0) 100%);
+  }
+}
+.snap-fx-card {
+  width: min(76vw, 60vh);
+  animation: snap-fx-card 1.5s cubic-bezier(0.18, 0.7, 0.28, 1) forwards;
+  filter: drop-shadow(0 0 50px rgba(150, 99, 221, 0.95));
+}
+@keyframes snap-fx-card {
+  0% {
+    opacity: 0;
+    transform: scale(0.25) rotate(-14deg);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.12) rotate(0deg);
+  }
+  34% {
+    transform: scale(0.98);
+  }
+  42% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
 /* Barra de acción */
 .action-bar {
   display: flex;

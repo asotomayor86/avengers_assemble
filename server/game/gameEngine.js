@@ -473,6 +473,14 @@ function handleCounterResponse(state, action, playerId, events) {
     discardCards(state, [counter]);
     state.noDraw[responderId] = (state.noDraw[responderId] || 0) + 1; // tras Contrarrestar no roba
     log(state, events, `🛡️ ${name(state, responderId)} contrarresta ${play.card.name}.`);
+    // Doctor Strange se ve sobre la zona (lado derecho) del atacante contrarrestado.
+    state.lastAction = {
+      kind: 'play',
+      actorId: responderId,
+      card: fxCard(counter),
+      target: { ownerId: play.actorId },
+      n: nextActionSeq(state),
+    };
 
     // El rival busca un nuevo objetivo válido (sin contar al que contrarrestó).
     const validTargets = computeValidTargets(state, play.actorId, play.card, responderId);
@@ -647,6 +655,8 @@ function snapQuotas(state) {
 }
 
 function startSnap(state, actorId, card, target, events) {
+  // Efecto "bomba" del Guantelete: a pantalla completa, antes de la selección.
+  state.lastAction = { kind: 'snap', actorId, card: fxCard(card), n: nextActionSeq(state) };
   const toRemove = snapQuotas(state);
 
   // Nadie pierde héroes: el Chasquido no hace nada.
