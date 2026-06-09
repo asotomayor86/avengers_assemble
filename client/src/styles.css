@@ -314,6 +314,30 @@ body.celebrate::before {
   font-size: 0.9rem;
   color: var(--muted);
 }
+.rooms-item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+.admin-toggle {
+  margin-top: 12px;
+  width: 100%;
+}
+.admin-login {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-login-btns {
+  display: flex;
+  gap: 8px;
+}
+.admin-login-btns .btn {
+  flex: 1;
+}
 
 /* --- Admin --- */
 .admin-list {

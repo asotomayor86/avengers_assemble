@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { EVENTS, ROOM_STATUS } from '../../../shared/constants.js';
-import { emitAsync, listActiveRooms } from '../socket.js';
+import { emitAsync, listActiveRooms, accessAdmin, checkAuth } from '../socket.js';
 import HowToPlay from '../components/HowToPlay.jsx';
 
 const STATUS_LABEL = {
@@ -8,6 +8,15 @@ const STATUS_LABEL = {
   [ROOM_STATUS.PLAYING]: 'En curso',
   [ROOM_STATUS.FINISHED]: 'Terminada',
 };
+
+/** Texto del tiempo que lleva una sala sin movimiento. */
+function formatIdle(ms) {
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'activa ahora';
+  if (min < 60) return `${min} min sin actividad`;
+  const h = Math.floor(min / 60);
+  return `${h} h ${min % 60} min sin actividad`;
+}
 
 // Lobby: crear o unirse a una sala.
 export default function Lobby({ notice, onEnterRoom, onLogout }) {
@@ -18,6 +27,10 @@ export default function Lobby({ notice, onEnterRoom, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [rooms, setRooms] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminMode, setAdminMode] = useState(false); // mostrando el formulario de login admin
+  const [adminPass, setAdminPass] = useState('');
+  const [adminError, setAdminError] = useState(null);
 
   // En la pantalla inicial, refrescar la lista de salas activas cada 4 s.
   useEffect(() => {
@@ -34,6 +47,36 @@ export default function Lobby({ notice, onEnterRoom, onLogout }) {
       clearInterval(id);
     };
   }, [mode]);
+
+  // ¿Ya hay cookie de admin? (para no pedir la contraseña otra vez)
+  useEffect(() => {
+    checkAuth()
+      .then(({ isAdmin }) => setIsAdmin(!!isAdmin))
+      .catch(() => {});
+  }, []);
+
+  const adminLogin = async (e) => {
+    e.preventDefault();
+    setAdminError(null);
+    try {
+      await accessAdmin(adminPass);
+      setIsAdmin(true);
+      setAdminMode(false);
+      setAdminPass('');
+    } catch (err) {
+      setAdminError(err.message);
+    }
+  };
+
+  const closeRoom = async (roomCode) => {
+    setError(null);
+    try {
+      const res = await emitAsync(EVENTS.ADMIN_CLOSE, { code: roomCode });
+      setRooms(res.rooms || []);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   const create = async (e) => {
     e.preventDefault();
@@ -104,9 +147,65 @@ export default function Lobby({ notice, onEnterRoom, onLogout }) {
                           ? r.players.map((p) => p.nickname).join(', ')
                           : 'Sin jugadores'}
                       </div>
+                      <div className="rooms-item-foot">
+                        <span className="muted small">⏱ {formatIdle(r.idleMs)}</span>
+                        {isAdmin && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => closeRoom(r.code)}
+                          >
+                            Cerrar
+                          </button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {error && <p className="error">{error}</p>}
+
+              {/* Acceso de administrador para poder cerrar salas */}
+              {!isAdmin && !adminMode && (
+                <button
+                  className="btn btn-ghost btn-sm admin-toggle"
+                  onClick={() => setAdminMode(true)}
+                >
+                  🔒 Cerrar salas (admin)
+                </button>
+              )}
+              {!isAdmin && adminMode && (
+                <form onSubmit={adminLogin} className="admin-login">
+                  <input
+                    className="input"
+                    type="password"
+                    autoFocus
+                    placeholder="Contraseña de administrador"
+                    value={adminPass}
+                    onChange={(e) => setAdminPass(e.target.value)}
+                  />
+                  {adminError && <p className="error">{adminError}</p>}
+                  <div className="admin-login-btns">
+                    <button className="btn btn-primary btn-sm" disabled={!adminPass}>
+                      Entrar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        setAdminMode(false);
+                        setAdminError(null);
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              )}
+              {isAdmin && (
+                <p className="muted small center">
+                  Modo administrador activo · puedes cerrar salas.
+                </p>
               )}
             </div>
           </div>

@@ -81,6 +81,11 @@ export function listActiveRooms() {
   return http('GET', '/api/rooms');
 }
 
+/** Valida la contraseña de administrador y deja la cookie de admin. */
+export function accessAdmin(code) {
+  return http('POST', '/api/admin/access', { code });
+}
+
 /** Cierra sesión (caduca la cookie en el servidor). */
 export function logout() {
   return http('DELETE', '/api/access').catch(() => {});
