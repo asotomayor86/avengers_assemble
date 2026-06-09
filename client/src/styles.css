@@ -901,6 +901,57 @@ body.celebrate::before {
   margin: 12px auto;
 }
 
+/* --- Cómo se juega (modal de reglas) --- */
+.howto-link {
+  margin-top: 14px;
+  width: 100%;
+}
+.howto {
+  text-align: left;
+  max-width: 460px;
+}
+.howto h2 {
+  text-align: center;
+}
+.howto h3 {
+  margin: 16px 0 4px;
+  font-size: 1rem;
+  color: var(--primary);
+}
+.howto p {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.howto-goal {
+  background: var(--panel-2);
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-align: center;
+}
+.howto-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.howto-list ul {
+  margin: 5px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.howto .modal-btns {
+  position: sticky;
+  bottom: -20px;
+  background: var(--panel);
+  padding-top: 10px;
+}
+
 /* Fin de partida: deja ver el fondo y usa la fuente de los títulos */
 .end-overlay {
   position: fixed;

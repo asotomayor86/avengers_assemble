@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import HowToPlay from '../components/HowToPlay.jsx';
 
 // Pantalla de acceso a la web mediante el código compartido.
 export default function AccessScreen({ onGranted, notice }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -48,7 +50,11 @@ export default function AccessScreen({ onGranted, notice }) {
             {loading ? 'Comprobando…' : 'Entrar'}
           </button>
         </form>
+        <button type="button" className="btn btn-ghost btn-sm howto-link" onClick={() => setShowHelp(true)}>
+          ¿Cómo se juega?
+        </button>
       </div>
+      {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

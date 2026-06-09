@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { EVENTS } from '../../../shared/constants.js';
 import { emitAsync } from '../socket.js';
+import HowToPlay from '../components/HowToPlay.jsx';
 
 // Lobby: crear o unirse a una sala.
 export default function Lobby({ notice, onEnterRoom, onLogout }) {
@@ -9,6 +10,7 @@ export default function Lobby({ notice, onEnterRoom, onLogout }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const create = async (e) => {
     e.preventDefault();
@@ -57,6 +59,9 @@ export default function Lobby({ notice, onEnterRoom, onLogout }) {
             </button>
             <button className="btn btn-secondary btn-lg" onClick={() => setMode('join')}>
               Unirse a sala
+            </button>
+            <button className="btn btn-ghost btn-sm howto-link" onClick={() => setShowHelp(true)}>
+              ¿Cómo se juega?
             </button>
           </div>
         )}
@@ -116,6 +121,7 @@ export default function Lobby({ notice, onEnterRoom, onLogout }) {
           </form>
         )}
       </div>
+      {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
