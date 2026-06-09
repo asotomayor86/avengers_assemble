@@ -486,6 +486,7 @@ body.celebrate::before {
 
 .player-zone {
   /* Gris semitransparente para que se intuya la imagen de fondo en las zonas inactivas */
+  position: relative;
   background: rgba(37, 43, 58, 0.55);
   border-radius: 10px;
   padding: 4px 6px;
@@ -494,6 +495,40 @@ body.celebrate::before {
   align-items: stretch;
   gap: 6px;
   overflow: hidden;
+}
+
+/* Aviso de descarte: superpuesto sobre la zona del jugador que se descarta,
+   ocupando el 70% derecho de su zona y bien grande. */
+.zone-discard {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 70%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 10px;
+  color: #e0a52b;
+  font-family: 'Avengeance', system-ui, sans-serif;
+  font-size: clamp(1.6rem, 7vw, 3rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  z-index: 6;
+  pointer-events: none;
+  animation: zone-discard-in 0.25s ease;
+}
+@keyframes zone-discard-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Número grande y difuminado de héroes libres (derecha, ocupa todo el alto) */
@@ -799,12 +834,6 @@ body.celebrate::before {
 .turn-line.other {
   color: rgba(255, 255, 255, 0.55);
   font-size: 1.8rem;
-}
-/* Aviso de descarte (se muestra al resto antes del cambio de turno) */
-.turn-line.discard-line {
-  color: #e0a52b;
-  font-size: 2.2rem;
-  text-transform: uppercase;
 }
 
 /* Ventana flotante de ayuda al pasar el cursor por la etiqueta "Acción" */

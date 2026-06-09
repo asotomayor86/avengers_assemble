@@ -86,7 +86,7 @@ export default function GameBoard({ room, game, myId, onLeave }) {
   // Aviso de descarte: cuando otro jugador se descarta, mostramos un mensaje al
   // resto ANTES del cambio de turno (sustituye brevemente a la línea de turno).
   const lastDiscardN = useRef(null);
-  const [discardMsg, setDiscardMsg] = useState(null);
+  const [discardActor, setDiscardActor] = useState(null);
   useEffect(() => {
     const la = game.lastAction;
     if (!la || la.kind !== 'discard') return;
@@ -96,13 +96,13 @@ export default function GameBoard({ room, game, myId, onLeave }) {
     }
     if (la.n === lastDiscardN.current) return;
     lastDiscardN.current = la.n;
-    if (la.actorId !== myId) setDiscardMsg(`${nick(la.actorId)} se ha descartado`);
+    if (la.actorId !== myId) setDiscardActor(la.actorId);
   }, [game, myId]);
   useEffect(() => {
-    if (!discardMsg) return undefined;
-    const t = setTimeout(() => setDiscardMsg(null), 2300);
+    if (!discardActor) return undefined;
+    const t = setTimeout(() => setDiscardActor(null), 2300);
     return () => clearTimeout(t);
-  }, [discardMsg]);
+  }, [discardActor]);
 
   const handCards = (game.hand || []).filter((c) => !discardSet.has(c.id));
   const selectedCard = handCards.find((c) => c.id === selectedId) || null;
@@ -225,10 +225,7 @@ export default function GameBoard({ room, game, myId, onLeave }) {
         </button>
       </header>
 
-      {game.status === 'playing' && discardMsg && (
-        <div className="turn-line discard-line">{discardMsg}</div>
-      )}
-      {game.status === 'playing' && !discardMsg && (
+      {game.status === 'playing' && (
         <div key={game.currentPlayer} className={`turn-line ${myTurn ? 'mine' : 'other'}`}>
           {myTurn ? 'Tu turno' : `Turno de ${nick(game.currentPlayer)}`}
         </div>
@@ -250,6 +247,7 @@ export default function GameBoard({ room, game, myId, onLeave }) {
             onSlotClick={onSlotClick}
             selectablePlayer={activePlayers.has(p.id)}
             onPlayerClick={onPlayerClick}
+            discard={discardActor === p.id}
           />
         ))}
       </div>
@@ -265,6 +263,7 @@ export default function GameBoard({ room, game, myId, onLeave }) {
           onSlotClick={onSlotClick}
           selectablePlayer={activePlayers.has(myId)}
           onPlayerClick={onPlayerClick}
+          discard={discardActor === myId}
         />
       </div>
 

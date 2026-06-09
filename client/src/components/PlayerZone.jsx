@@ -13,6 +13,7 @@ export default function PlayerZone({
   onSlotClick,
   selectablePlayer,
   onPlayerClick,
+  discard,
 }) {
   const clickableZone = selectablePlayer ? () => onPlayerClick(player.id) : undefined;
   const readyCount = team.filter((s) => s.state !== 'bloqueado').length;
@@ -62,6 +63,9 @@ export default function PlayerZone({
 
       {/* Número grande y difuminado de héroes listos (no bloqueados), a la derecha */}
       <div className="zone-count">{readyCount}</div>
+
+      {/* Aviso de descarte: superpuesto sobre la zona del jugador que se descarta */}
+      {discard && <div className="zone-discard">Descarte</div>}
     </div>
   );
 }
