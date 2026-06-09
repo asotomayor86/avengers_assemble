@@ -1,4 +1,7 @@
 import { execSync } from 'node:child_process';
+import { writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -14,18 +17,30 @@ if (!BASE) {
 const COOKIE = 'aa_site=' + siteToken();
 
 function call(method, path, body) {
+  // El body va a un fichero temporal (-d @file) para no depender del quoting del
+  // shell (cmd.exe en Windows no entiende comillas simples).
+  let bodyFile = null;
   const args = [
     `vercel curl "${BASE}${path}"`,
     `-X ${method}`,
     `-H "Content-Type: application/json"`,
     `-H "Cookie: ${COOKIE}"`,
   ];
-  if (body) args.push(`-d '${JSON.stringify(body)}'`);
-  const out = execSync(args.join(' '), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  if (body) {
+    bodyFile = join(tmpdir(), `aa-body-${process.pid}-${Math.floor(performance.now())}.json`);
+    writeFileSync(bodyFile, JSON.stringify(body));
+    args.push(`-d "@${bodyFile}"`);
+  }
   try {
+    const out = execSync(args.join(' '), {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
     return JSON.parse(out.trim());
-  } catch {
-    throw new Error(`Respuesta no-JSON de ${method} ${path}: ${out.slice(0, 200)}`);
+  } catch (err) {
+    throw new Error(`Fallo en ${method} ${path}: ${err.message}`);
+  } finally {
+    if (bodyFile) try { unlinkSync(bodyFile); } catch {}
   }
 }
 function assert(cond, msg) {
@@ -52,7 +67,11 @@ const acted = call('PUT', `/api/rooms/${created.code}/action`, {
 });
 assert(acted.version === view.version + 1, `jugada aplicada, version +1 (${acted.version})`);
 
-// Limpieza
-call('POST', `/api/rooms/${created.code}/leave`, { playerId: created.playerId });
-call('POST', `/api/rooms/${created.code}/leave`, { playerId: joined.playerId });
+// Limpieza (no crítica para el resultado del smoke).
+try {
+  call('POST', `/api/rooms/${created.code}/leave`, { playerId: created.playerId });
+  call('POST', `/api/rooms/${created.code}/leave`, { playerId: joined.playerId });
+} catch (e) {
+  console.warn('  (aviso) limpieza incompleta:', e.message.split('\n')[0]);
+}
 console.log('\n✓ Smoke HTTP (partida completa en producción) OK');
