@@ -107,7 +107,23 @@ export async function joinRoom(rawCode, nickname) {
   const cleanNick = cleanNickname(nickname);
   let playerId = null;
   const { room, version } = await mutateRoom(code, (room) => {
+    // Partida ya empezada (o terminada): solo se permite REINGRESAR a quien ya
+    // estaba en ella y se salió (p.ej. por error). Se identifica por apodo: si
+    // coincide con un jugador de la partida que ya no está en la sala, recupera
+    // su sitio con su mismo id (y por tanto su mano y su equipo intactos).
     if (room.status !== ROOM_STATUS.WAITING) {
+      const players = room.game?.players || {};
+      const match = Object.entries(players).find(
+        ([, p]) => p.nickname.toLowerCase() === cleanNick.toLowerCase()
+      );
+      const present = new Set(room.players.map((p) => p.id));
+      if (match && !present.has(match[0])) {
+        const [pid, gp] = match;
+        room.players.push({ id: pid, nickname: gp.nickname, isHost: false, connected: true, lastSeen: now() });
+        room.lastActivity = now();
+        playerId = pid;
+        return;
+      }
       throw new RoomError('La partida ya ha empezado en esa sala.');
     }
     if (room.players.length >= MAX_PLAYERS) {

@@ -76,6 +76,11 @@ export function checkAuth() {
   return http('GET', '/api/me');
 }
 
+/** Lista de salas activas (código, estado, jugadores) para el lobby. */
+export function listActiveRooms() {
+  return http('GET', '/api/rooms');
+}
+
 /** Cierra sesión (caduca la cookie en el servidor). */
 export function logout() {
   return http('DELETE', '/api/access').catch(() => {});
