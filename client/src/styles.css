@@ -1072,6 +1072,24 @@ body.celebrate::before {
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
   }
+
+  /* Montones de mazo y descarte más pequeños para dar espacio a la mano,
+     que se queda a tamaño normal (máx. 96px). */
+  .deck {
+    width: 60px;
+    height: 60px;
+  }
+  .deck-pile {
+    padding-left: 0;
+    padding-right: 2px;
+  }
+  .deck-label {
+    font-size: 0.5rem;
+  }
+  .deck-count {
+    font-size: 0.85rem;
+    padding: 0 6px;
+  }
 }
 
 /* En apaisado y poco alto (p.ej. tablet horizontal) limitamos el alto de la mano
