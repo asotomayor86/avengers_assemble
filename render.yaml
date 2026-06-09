@@ -1,0 +1,20 @@
+# Despliegue en Render (https://render.com) — un único servicio web persistente
+# que sirve la API REST, el WebSocket de Socket.IO y el frontend compilado.
+services:
+  - type: web
+    name: avengers-assemble
+    runtime: node
+    plan: free
+    # Instala dependencias del servidor + compila el cliente en client/dist.
+    buildCommand: npm install && npm run build
+    # Arranca el servidor Express + Socket.IO (lee el puerto de process.env.PORT).
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      # Códigos de acceso: configúralos en el panel de Render (no se versionan).
+      - key: SITE_ACCESS_CODE
+        sync: false
+      - key: ADMIN_CODE
+        sync: false
