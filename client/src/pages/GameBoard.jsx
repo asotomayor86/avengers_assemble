@@ -144,6 +144,12 @@ export default function GameBoard({ room, game, myId, onLeave }) {
     return () => clearTimeout(t);
   }, [snapFx]);
 
+  // Al llegar un nuevo estado, las cartas descartadas ya no están en la mano: limpiamos
+  // la cola de descarte (solo si había algo, para no forzar renders innecesarios).
+  useEffect(() => {
+    setDiscardSet((prev) => (prev.size ? new Set() : prev));
+  }, [game]);
+
   const handCards = (game.hand || []).filter((c) => !discardSet.has(c.id));
   const selectedCard = handCards.find((c) => c.id === selectedId) || null;
 
@@ -152,7 +158,9 @@ export default function GameBoard({ room, game, myId, onLeave }) {
     try {
       await emitAsync(EVENTS.GAME_ACTION, { action });
       setSelectedId(null);
-      setDiscardSet(new Set());
+      // OJO: no limpiamos `discardSet` aquí. Si lo hiciéramos antes de que llegue el
+      // nuevo estado (por SSE), las cartas descartadas reaparecerían un instante en la
+      // mano y luego se cambiarían por las robadas. Se limpia al recibir el estado nuevo.
     } catch (err) {
       setError(err.message);
     }
