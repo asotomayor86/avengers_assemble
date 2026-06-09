@@ -22,12 +22,14 @@ export default function GameBoard({ room, game, myId, onLeave }) {
   const boardRef = useRef(null);
   const heroRectsRef = useRef(new Map());
   const heroSlotsRef = useRef(new Map());
+  const prevRectsRef = useRef(new Map()); // posiciones de héroes ANTES de la última actualización
   const seqRef = useRef(0);
   const [dying, setDying] = useState([]);
 
   useLayoutEffect(() => {
     const oldRects = heroRectsRef.current;
     const oldSlots = heroSlotsRef.current;
+    prevRectsRef.current = oldRects; // para situar efectos sobre héroes recién eliminados
     if (game.status !== 'playing') {
       heroRectsRef.current = new Map();
       heroSlotsRef.current = new Map();
@@ -104,10 +106,12 @@ export default function GameBoard({ room, game, myId, onLeave }) {
     } else if (la.kind === 'play' && la.card) {
       let pos = null;
       if (la.target?.heroId) {
-        // Sobre el héroe objetivo.
+        // Sobre el héroe objetivo. Si ya no está en el tablero (lo destruyó este
+        // mismo villano), usamos su última posición conocida para que la carta se
+        // vea actuar ANTES de la animación de "Eliminada".
         const el = boardRef.current?.querySelector(`[data-hero="${la.target.heroId}"]`);
-        if (el) {
-          const r = el.getBoundingClientRect();
+        const r = el ? el.getBoundingClientRect() : prevRectsRef.current?.get(la.target.heroId);
+        if (r) {
           pos = { x: r.left + r.width / 2, y: r.top + r.height / 2, w: Math.max(r.width, 72) };
         }
       } else if (la.target?.ownerId) {
