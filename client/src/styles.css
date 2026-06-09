@@ -940,3 +940,123 @@ body.celebrate::before {
   color: #1b1f2a;
   border-color: #b49bf0;
 }
+
+/* ============================================================
+   RESPONSIVE
+   El móvil es la base (todo lo de arriba). Aquí SOLO ensanchamos
+   y agrandamos para tablet y PC mediante overrides; nada del
+   layout móvil se modifica. Breakpoints:
+     · Tablet  ≥ 768px
+     · PC      ≥ 1200px
+   ============================================================ */
+
+/* --- TABLET (≥ 768px) --- */
+@media (min-width: 768px) {
+  body {
+    font-size: 17px;
+  }
+
+  /* Pantallas no-tablero (acceso, lobby, sala, admin): más anchas y aireadas */
+  .screen {
+    max-width: 720px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .card-panel {
+    max-width: 420px;
+    padding: 32px;
+  }
+  .title {
+    font-size: 2rem;
+  }
+  .room-code {
+    font-size: 3.2rem;
+  }
+
+  /* Panel de administración en dos columnas */
+  .admin-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
+  }
+
+  /* Modales con más sitio para las cartas (Espiar/Chasquido) */
+  .modal {
+    max-width: 480px;
+  }
+
+  /* Tablero más ancho y cartas más grandes */
+  .board {
+    max-width: 880px;
+  }
+  .zone-heroes > .hero-slot {
+    max-width: 116px;
+  }
+  .hand {
+    min-height: 152px;
+  }
+  .hand-card {
+    max-width: 116px;
+  }
+  .deck {
+    width: 116px;
+    height: 116px;
+  }
+  .zone-count {
+    font-size: 7rem;
+  }
+}
+
+/* --- PC (≥ 1200px) --- */
+@media (min-width: 1200px) {
+  .screen {
+    max-width: 820px;
+  }
+  .admin-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .modal {
+    max-width: 560px;
+  }
+
+  /* Tablero: aprovecha el ancho de la pantalla; cartas grandes */
+  .board {
+    max-width: 1180px;
+    padding: 0 24px 12px;
+  }
+  .zone-heroes > .hero-slot {
+    max-width: 132px;
+  }
+  .hand {
+    min-height: 172px;
+  }
+  .hand-card {
+    max-width: 132px;
+  }
+  .deck {
+    width: 132px;
+    height: 132px;
+  }
+  .zone-count {
+    font-size: 8rem;
+  }
+  .turn-line.mine {
+    font-size: 5.2rem;
+  }
+}
+
+/* En apaisado y poco alto (p.ej. tablet horizontal) limitamos el alto de la mano
+   para que el tablero no se coma la pantalla. */
+@media (min-width: 768px) and (max-height: 620px) {
+  .hand {
+    min-height: 120px;
+  }
+  .hand-card,
+  .zone-heroes > .hero-slot {
+    max-width: 96px;
+  }
+  .deck {
+    width: 96px;
+    height: 96px;
+  }
+}
