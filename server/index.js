@@ -61,5 +61,5 @@ setInterval(() => {
 }, config.cleanupIntervalMs);
 
 server.listen(config.port, () => {
-  console.log(`Virus! MARVEL escuchando en http://localhost:${config.port}`);
+  console.log(`ASSEMBLE! escuchando en http://localhost:${config.port}`);
 });

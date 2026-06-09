@@ -1,9 +1,9 @@
 {
-  "name": "virus-marvel",
+  "name": "assemble",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Virus! MARVEL online - juego de cartas multijugador en tiempo real (uso familiar privado)",
+  "description": "ASSEMBLE! online - juego de cartas multijugador en tiempo real (uso familiar privado)",
   "scripts": {
     "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "nodemon server/index.js",

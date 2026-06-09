@@ -1,11 +1,12 @@
-# Virus! MARVEL — online (uso familiar)
+# ASSEMBLE! — online (uso familiar)
 
-Aplicación web multijugador en tiempo real del juego de cartas *Virus! MARVEL* para jugar
+Aplicación web multijugador en tiempo real del juego de cartas *ASSEMBLE!* para jugar
 2–5 jugadores online en familia. Servidor Node con estado autoritativo (Socket.IO) y
 frontend React (Vite), mobile-first y en español.
 
-> Proyecto **privado para uso familiar**. Los nombres de personajes Marvel y la mecánica de
-> *Virus!* pertenecen a sus titulares. No publicar ni distribuir comercialmente.
+> Proyecto **privado para uso familiar**. ASSEMBLE! es una adaptación casera; los nombres de
+> personajes Marvel y la mecánica del juego *Virus!* pertenecen a sus titulares. No publicar
+> ni distribuir comercialmente.
 
 ## Estado del proyecto
 

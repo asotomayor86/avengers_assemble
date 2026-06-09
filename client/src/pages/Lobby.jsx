@@ -41,7 +41,7 @@ export default function Lobby({ notice, onEnterRoom, onLogout }) {
   return (
     <div className="screen">
       <header className="topbar">
-        <h1 className="title">Virus! MARVEL</h1>
+        <h1 className="title">ASSEMBLE!</h1>
         <button className="btn btn-ghost btn-sm" onClick={onLogout}>
           Salir
         </button>

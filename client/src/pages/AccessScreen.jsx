@@ -30,7 +30,7 @@ export default function AccessScreen({ onGranted, notice }) {
   return (
     <div className="screen center">
       <div className="card-panel">
-        <h1 className="title">Virus! MARVEL</h1>
+        <h1 className="title">ASSEMBLE!</h1>
         <p className="subtitle">Introduce el código de acceso</p>
         {notice && <p className="notice">{notice}</p>}
         <form onSubmit={submit} className="form">

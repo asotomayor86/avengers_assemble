@@ -1,4 +1,4 @@
-// Datos de la baraja de Virus! MARVEL — sin dependencias de UI.
+// Datos de la baraja de ASSEMBLE! — sin dependencias de UI.
 // Lo importan TANTO el servidor (repartir/validar) COMO el cliente (render).
 // 81 cartas: 22 héroes + 20 poderes + 20 villanos + 5 aliados + 14 acciones.
 
