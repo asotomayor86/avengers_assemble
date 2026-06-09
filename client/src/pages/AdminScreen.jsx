@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { EVENTS, ROOM_STATUS } from '../../../shared/constants.js';
-import { connectSocket, emitAsync } from '../socket.js';
+import { emitAsync, checkAuth } from '../socket.js';
 
 const STATUS_LABEL = {
   [ROOM_STATUS.WAITING]: 'Esperando',
@@ -18,7 +18,7 @@ function formatAge(ms) {
 
 // Panel de administración (ruta #admin): listar y cerrar salas.
 export default function AdminScreen() {
-  const [token, setToken] = useState(null);
+  const [authed, setAuthed] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState(null);
   const [rooms, setRooms] = useState([]);
@@ -32,14 +32,20 @@ export default function AdminScreen() {
     }
   }, []);
 
-  // Una vez autenticado, conectar socket y refrescar periódicamente.
+  // Si ya hay cookie de admin (recarga), saltar el login.
   useEffect(() => {
-    if (!token) return;
-    connectSocket(token);
+    checkAuth()
+      .then(({ isAdmin }) => setAuthed(!!isAdmin))
+      .catch(() => {});
+  }, []);
+
+  // Una vez autenticado, refrescar la lista periódicamente.
+  useEffect(() => {
+    if (!authed) return;
     refresh();
     const id = setInterval(refresh, 5000);
     return () => clearInterval(id);
-  }, [token, refresh]);
+  }, [authed, refresh]);
 
   const login = async (e) => {
     e.preventDefault();
@@ -49,10 +55,11 @@ export default function AdminScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
+        credentials: 'same-origin',
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código incorrecto.');
-      setToken(data.token);
+      setAuthed(true);
     } catch (err) {
       setError(err.message);
     }
@@ -68,7 +75,7 @@ export default function AdminScreen() {
     }
   };
 
-  if (!token) {
+  if (!authed) {
     return (
       <div className="screen center">
         <div className="card-panel">

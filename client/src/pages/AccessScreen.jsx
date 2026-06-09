@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { session } from '../state/session.js';
-import { ROLE } from '../../../shared/constants.js';
 
 // Pantalla de acceso a la web mediante el código compartido.
 export default function AccessScreen({ onGranted, notice }) {
@@ -17,11 +15,11 @@ export default function AccessScreen({ onGranted, notice }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
+        credentials: 'same-origin',
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código incorrecto.');
-      session.setAuth(data.token, ROLE.PLAYER);
-      onGranted(data.token);
+      onGranted();
     } catch (err) {
       setError(err.message);
     } finally {

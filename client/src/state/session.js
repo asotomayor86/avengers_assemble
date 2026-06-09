@@ -1,27 +1,14 @@
 // Persistencia ligera de sesión en localStorage.
-// - token/role: sesión de acceso a la web (o admin).
-// - roomCode/playerId/nickname: para reconectar a la sala tras recargar o caída.
+// El acceso a la web ya NO se guarda aquí: vive en una cookie httpOnly puesta por el
+// servidor. Solo persistimos la sala para poder reconectar tras recargar o caída.
 
 const KEYS = {
-  token: 'vm_token',
-  role: 'vm_role',
   roomCode: 'vm_roomCode',
   playerId: 'vm_playerId',
   nickname: 'vm_nickname',
 };
 
 export const session = {
-  getToken: () => localStorage.getItem(KEYS.token),
-  getRole: () => localStorage.getItem(KEYS.role),
-  setAuth(token, role) {
-    localStorage.setItem(KEYS.token, token);
-    localStorage.setItem(KEYS.role, role);
-  },
-  clearAuth() {
-    localStorage.removeItem(KEYS.token);
-    localStorage.removeItem(KEYS.role);
-  },
-
   getRoom: () => ({
     code: localStorage.getItem(KEYS.roomCode),
     playerId: localStorage.getItem(KEYS.playerId),

@@ -53,6 +53,13 @@ export function setAuthCookie(res, name, value) {
   res.setHeader('Set-Cookie', prev ? [].concat(prev, cookie) : cookie);
 }
 
+/** Caduca una cookie (Max-Age=0) para cerrar sesión. */
+export function clearAuthCookie(res, name) {
+  const cookie = `${name}=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0`;
+  const prev = res.getHeader('Set-Cookie');
+  res.setHeader('Set-Cookie', prev ? [].concat(prev, cookie) : cookie);
+}
+
 /** Estado de autenticación de la petición. Admin implica también acceso de jugador. */
 export function getAuth(req) {
   const c = parseCookies(req);
