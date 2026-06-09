@@ -85,37 +85,36 @@ export default function GameBoard({ room, game, myId, onLeave }) {
   const myTurn = game.currentPlayer === myId;
   const finished = game.status === 'finished';
 
-  // Aviso de descarte: cuando otro jugador se descarta, mostramos un mensaje al
-  // resto ANTES del cambio de turno (sustituye brevemente a la línea de turno).
-  // Avisos derivados de lastAction (descarte y jugada sobre un héroe). Un único
-  // contador monótono `n` evita repetir avisos y reproducir los anteriores al cargar.
+  // Avisos visuales derivados de lastAction (descarte, jugada sobre héroe/zona y
+  // Chasquido), con un contador monótono `n` global. Inicializamos a la acción
+  // presente al entrar al tablero, así solo animamos las POSTERIORES (y al reconectar
+  // no se repite la última). useLayoutEffect para que el modal del Chasquido no parpadee.
   const seenActionN = useRef(null);
   const [discardActor, setDiscardActor] = useState(null);
   const [playFx, setPlayFx] = useState(null);
-  useEffect(() => {
+  const [snapFx, setSnapFx] = useState(null);
+  useLayoutEffect(() => {
     const la = game.lastAction;
-    if (!la) return;
     if (seenActionN.current === null) {
-      seenActionN.current = la.n; // primera carga: no reproducir avisos anteriores
+      seenActionN.current = la?.n ?? 0; // base: solo se animan acciones posteriores a entrar
       return;
     }
-    if (la.n <= seenActionN.current) return;
+    if (!la || la.n <= seenActionN.current) return;
     seenActionN.current = la.n;
     if (la.kind === 'discard') {
       if (la.actorId !== myId) setDiscardActor(la.actorId);
+    } else if (la.kind === 'snap') {
+      setSnapFx({ card: la.card, seq: la.n });
     } else if (la.kind === 'play' && la.card) {
       let pos = null;
       if (la.target?.heroId) {
-        // Sobre el héroe objetivo. Si ya no está en el tablero (lo destruyó este
-        // mismo villano), usamos su última posición conocida para que la carta se
-        // vea actuar ANTES de la animación de "Eliminada".
+        // Sobre el héroe objetivo. Si ya no está (lo destruyó este mismo villano),
+        // usamos su última posición conocida para verlo actuar ANTES de "Eliminada".
         const el = boardRef.current?.querySelector(`[data-hero="${la.target.heroId}"]`);
         const r = el ? el.getBoundingClientRect() : prevRectsRef.current?.get(la.target.heroId);
-        if (r) {
-          pos = { x: r.left + r.width / 2, y: r.top + r.height / 2, w: Math.max(r.width, 72) };
-        }
+        if (r) pos = { x: r.left + r.width / 2, y: r.top + r.height / 2, w: Math.max(r.width, 72) };
       } else if (la.target?.ownerId) {
-        // Sin héroe (Wanda, Viuda Negra): sobre el lado derecho de la zona del afectado.
+        // Sin héroe (Wanda, Viuda Negra, Doctor Strange): lado derecho de la zona.
         const el = boardRef.current?.querySelector(`[data-player="${la.target.ownerId}"]`);
         if (el) {
           const r = el.getBoundingClientRect();
@@ -139,22 +138,6 @@ export default function GameBoard({ room, game, myId, onLeave }) {
     const t = setTimeout(() => setPlayFx(null), 1000);
     return () => clearTimeout(t);
   }, [playFx]);
-
-  // Chasquido: efecto "bomba" a pantalla completa ANTES de la selección de héroes.
-  // useLayoutEffect (no useEffect) para ocultar el modal de selección sin parpadeo.
-  const snapSeen = useRef(null);
-  const [snapFx, setSnapFx] = useState(null);
-  useLayoutEffect(() => {
-    const la = game.lastAction;
-    if (!la || la.kind !== 'snap') return;
-    if (snapSeen.current === null) {
-      snapSeen.current = la.n;
-      return;
-    }
-    if (la.n === snapSeen.current) return;
-    snapSeen.current = la.n;
-    setSnapFx({ card: la.card, seq: la.n });
-  }, [game]);
   useEffect(() => {
     if (!snapFx) return undefined;
     const t = setTimeout(() => setSnapFx(null), 1500);
