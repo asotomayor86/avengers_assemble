@@ -83,6 +83,27 @@ export default function GameBoard({ room, game, myId, onLeave }) {
   const myTurn = game.currentPlayer === myId;
   const finished = game.status === 'finished';
 
+  // Aviso de descarte: cuando otro jugador se descarta, mostramos un mensaje al
+  // resto ANTES del cambio de turno (sustituye brevemente a la línea de turno).
+  const lastDiscardN = useRef(null);
+  const [discardMsg, setDiscardMsg] = useState(null);
+  useEffect(() => {
+    const la = game.lastAction;
+    if (!la || la.kind !== 'discard') return;
+    if (lastDiscardN.current === null) {
+      lastDiscardN.current = la.n; // primera carga: no avisar de descartes anteriores
+      return;
+    }
+    if (la.n === lastDiscardN.current) return;
+    lastDiscardN.current = la.n;
+    if (la.actorId !== myId) setDiscardMsg(`${nick(la.actorId)} se ha descartado`);
+  }, [game, myId]);
+  useEffect(() => {
+    if (!discardMsg) return undefined;
+    const t = setTimeout(() => setDiscardMsg(null), 2300);
+    return () => clearTimeout(t);
+  }, [discardMsg]);
+
   const handCards = (game.hand || []).filter((c) => !discardSet.has(c.id));
   const selectedCard = handCards.find((c) => c.id === selectedId) || null;
 
@@ -204,7 +225,10 @@ export default function GameBoard({ room, game, myId, onLeave }) {
         </button>
       </header>
 
-      {game.status === 'playing' && (
+      {game.status === 'playing' && discardMsg && (
+        <div className="turn-line discard-line">{discardMsg}</div>
+      )}
+      {game.status === 'playing' && !discardMsg && (
         <div key={game.currentPlayer} className={`turn-line ${myTurn ? 'mine' : 'other'}`}>
           {myTurn ? 'Tu turno' : `Turno de ${nick(game.currentPlayer)}`}
         </div>

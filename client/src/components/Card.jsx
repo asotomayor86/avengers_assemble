@@ -142,6 +142,13 @@ export default function Card({ card, size = 'md', count, onClick, selectable, se
     const factionColor = STRONG[card.color] || '#888';
     const col = isSoft && !isBlocked ? pal.ink : '#fff'; // iconos en blanco
     const letter = card.type === 'hero' ? 'H' : card.type === 'villain' ? 'V' : null;
+    // Un héroe bloqueado (fondo gris) o blindado (fondo morado) pierde su color de
+    // facción de fondo; coloreamos su letra con ese color para no perder de vista a
+    // qué color pertenece. Multicolor → blanco intenso (legible sobre gris/morado).
+    const keepColorLetter = card.type === 'hero' && (isBlocked || isShielded);
+    const letterColor = keepColorLetter
+      ? (isMulti ? 'rgba(255,255,255,0.85)' : `${factionColor}CC`)
+      : 'rgba(255,255,255,0.28)';
     const badgeF = TYPE_BADGE[card.type] || { label: card.type, bg: '#555' };
     // Borde grueso: protegido = morado oscuro; bloqueado/blindado = color de facción;
     // libre = blanco fino.
@@ -191,7 +198,7 @@ export default function Card({ card, size = 'md', count, onClick, selectable, se
 
             {/* Icono y letra de tipo, siempre visibles (también en gris) */}
             {letter && (
-              <span style={{ position: 'absolute', right: '6%', top: '8%', lineHeight: 1, fontSize: '70cqw', fontWeight: 900, color: 'rgba(255,255,255,0.28)', pointerEvents: 'none' }}>{letter}</span>
+              <span style={{ position: 'absolute', right: '6%', top: '8%', lineHeight: 1, fontSize: '70cqw', fontWeight: 900, color: letterColor, textShadow: keepColorLetter ? '0 1px 4px rgba(0,0,0,0.45)' : 'none', pointerEvents: 'none' }}>{letter}</span>
             )}
             <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: '30%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ width: '44cqw', height: '44cqw', display: 'flex' }}>

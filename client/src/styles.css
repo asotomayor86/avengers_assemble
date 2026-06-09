@@ -800,6 +800,12 @@ body.celebrate::before {
   color: rgba(255, 255, 255, 0.55);
   font-size: 1.8rem;
 }
+/* Aviso de descarte (se muestra al resto antes del cambio de turno) */
+.turn-line.discard-line {
+  color: #e0a52b;
+  font-size: 2.2rem;
+  text-transform: uppercase;
+}
 
 /* Ventana flotante de ayuda al pasar el cursor por la etiqueta "Acción" */
 .card-tip {

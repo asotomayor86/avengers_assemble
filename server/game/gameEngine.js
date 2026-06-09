@@ -186,6 +186,9 @@ function handleDiscard(state, action, playerId, events) {
   for (const id of ids) removed.push(takeFromHand(state, playerId, id));
   discardCards(state, removed);
   log(state, events, `${name(state, playerId)} descarta ${removed.length} carta(s).`);
+  // Marca el resultado de la acción: lo usa el cliente para avisar al resto del
+  // descarte antes de mostrar el cambio de turno. `n` es monotónico (seq del log).
+  state.lastAction = { kind: 'discard', actorId: playerId, count: removed.length, n: state.logSeq };
   return finishTurn(state, playerId, false, events);
 }
 
@@ -788,5 +791,6 @@ export function serializeState(state, viewerId = null) {
     topDiscard: state.discard[state.discard.length - 1] || null,
     pending: serializePending(state.pending, viewerId, state),
     log: state.log.slice(-30),
+    lastAction: state.lastAction || null,
   };
 }
