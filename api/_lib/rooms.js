@@ -230,6 +230,8 @@ export async function startGame(code, requesterId) {
     }
     room.status = ROOM_STATUS.PLAYING;
     room.game = createGame(room.players.map((p) => ({ id: p.id, nickname: p.nickname })));
+    // Nueva partida (incluida la revancha): permitir enviar su resultado al hub.
+    room.resultSent = false;
     room.lastActivity = now();
   });
   return { room, version };
