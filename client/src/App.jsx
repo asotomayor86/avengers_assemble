@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { EVENTS, ROOM_STATUS } from '../../shared/constants.js';
 import { emitAsync, subscribeRoom, checkAuth, logout } from './socket.js';
 import { session } from './state/session.js';
-import AccessScreen from './pages/AccessScreen.jsx';
+import LoginScreen from './pages/LoginScreen.jsx';
 import Lobby from './pages/Lobby.jsx';
 import RoomScreen from './pages/RoomScreen.jsx';
 import GameBoard from './pages/GameBoard.jsx';
@@ -136,7 +136,7 @@ function PlayerApp() {
     return <div className="screen center">Cargando…</div>;
   }
   if (screen === 'access') {
-    return <AccessScreen notice={notice} onGranted={handleAccessGranted} />;
+    return <LoginScreen notice={notice} onGranted={handleAccessGranted} />;
   }
   if (screen === 'room' && room) {
     const inGame = room.status === ROOM_STATUS.PLAYING || room.status === ROOM_STATUS.FINISHED;

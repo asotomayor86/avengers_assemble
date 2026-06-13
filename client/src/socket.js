@@ -1,5 +1,6 @@
 import { EVENTS } from '../../shared/constants.js';
 import { session } from './state/session.js';
+import { logoutNeon } from './auth.js';
 
 // Capa de transporte sobre la API REST + SSE (sustituye a socket.io).
 // Mantiene la firma `emitAsync(evento, payload)` para que las pantallas existentes
@@ -76,6 +77,11 @@ export function checkAuth() {
   return http('GET', '/api/me');
 }
 
+/** Tras el login con Neon Auth, fija la sesión del juego (cookie aa_user). */
+export function setServerSession(user) {
+  return http('POST', '/api/access', { userId: user.id, name: user.name });
+}
+
 /** Lista de salas activas (código, estado, jugadores) para el lobby. */
 export function listActiveRooms() {
   return http('GET', '/api/rooms');
@@ -86,9 +92,10 @@ export function accessAdmin(code) {
   return http('POST', '/api/admin/access', { code });
 }
 
-/** Cierra sesión (caduca la cookie en el servidor). */
-export function logout() {
-  return http('DELETE', '/api/access').catch(() => {});
+/** Cierra sesión: caduca la cookie del juego y la sesión de Neon Auth. */
+export async function logout() {
+  await http('DELETE', '/api/access').catch(() => {});
+  await logoutNeon();
 }
 
 /**
