@@ -3,6 +3,7 @@ import { getSql } from './db.js';
 import { generateUniqueCode, normalizeCode } from '../../server/rooms/codes.js';
 import { ROOM_STATUS, MIN_PLAYERS, MAX_PLAYERS } from '../../shared/constants.js';
 import { createGame, applyAction, serializeState } from '../../server/game/gameEngine.js';
+import { submitHubResult } from './hub.js';
 
 // Port del roomManager a Neon. La lógica de dominio es idéntica a la versión socket.io;
 // solo cambia la persistencia: en vez de un store en memoria, cada sala es una fila
@@ -176,6 +177,7 @@ export async function enterFromHub(rawCode, user) {
       createdAt: now(),
       lastActivity: now(),
       game: null,
+      fromHub: true, // marca que esta sala vino del hub → al acabar, enviar resultado
     };
     try {
       await sql`
@@ -233,16 +235,46 @@ export async function startGame(code, requesterId) {
   return { room, version };
 }
 
+/** Construye el resultado para el hub: el ganador 'win', el resto 'loss'. */
+function resultadosParaHub(state) {
+  return Object.keys(state.players || {}).map((uid) => ({
+    userId: uid,
+    result: uid === state.winner ? 'win' : 'loss',
+  }));
+}
+
 /** Aplica una acción de juego validándola con el motor (autoridad del servidor). */
 export async function applyGameAction(code, playerId, action) {
+  let enviarAlHub = null; // payload de resultado si la partida acaba de terminar
   const { room, version, extra } = await mutateRoom(normalizeCode(code), (room) => {
     if (!room.game) throw new RoomError('No hay ninguna partida en curso.');
+    const yaTerminada = room.status === ROOM_STATUS.FINISHED;
     const { state, events } = applyAction(room.game, action, playerId);
     room.game = state;
-    if (state.status === 'finished') room.status = ROOM_STATUS.FINISHED;
+    if (state.status === 'finished') {
+      room.status = ROOM_STATUS.FINISHED;
+      // Si la sala viene del hub y acaba de terminar, marcamos para enviar el
+      // resultado una sola vez (resultSent se persiste con el estado).
+      if (!yaTerminada && room.fromHub && !room.resultSent) {
+        room.resultSent = true;
+        enviarAlHub = resultadosParaHub(state);
+      }
+    }
     room.lastActivity = now();
     return events;
   });
+
+  // Envío del resultado al hub (fuera del CAS). Si falla, queda registrado en logs;
+  // el admin siempre puede registrar la partida a mano en el hub.
+  if (enviarAlHub) {
+    try {
+      const r = await submitHubResult(room.code, { kind: 'ranked', results: enviarAlHub });
+      if (!r.ok) console.error('[hub] resultado rechazado:', r.status, r.error || '');
+    } catch (err) {
+      console.error('[hub] error enviando resultado:', err.message);
+    }
+  }
+
   return { room, version, events: extra };
 }
 
