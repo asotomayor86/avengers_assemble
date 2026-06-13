@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { signSession, verifySession } from '@asotomayor86/hub-client/server';
 
 // Autenticación sin estado para serverless: la cookie guarda un token = SHA-256 del
 // código de acceso. Para verificar, se recalcula y se compara en tiempo constante.
@@ -23,6 +24,7 @@ function sha256(input) {
 
 function signingSecret() {
   return (
+    process.env.GAME_SESSION_SECRET ||
     process.env.AUTH_SIGNING_SECRET ||
     process.env.HUB_RESULT_SECRET ||
     process.env.ADMIN_CODE ||
@@ -30,34 +32,15 @@ function signingSecret() {
   );
 }
 
-function b64url(buf) {
-  return Buffer.from(buf).toString('base64url');
-}
-
-function hmac(value) {
-  return crypto.createHmac('sha256', signingSecret()).update(value).digest('base64url');
-}
-
-/** Construye el valor firmado de la cookie de usuario: payload.firma */
+/** Construye el valor firmado de la cookie de usuario (delegado al paquete). */
 export function signUser(user) {
-  const payload = b64url(JSON.stringify({ id: user.id, name: user.name || '' }));
-  return `${payload}.${hmac(payload)}`;
+  return signSession(user, signingSecret());
 }
 
 /** Lee y verifica la identidad del usuario desde la cookie; null si no es válida. */
 export function readUser(req) {
-  const c = parseCookies(req);
-  const raw = c[COOKIE_USER];
-  if (!raw || !raw.includes('.')) return null;
-  const [payload, sig] = raw.split('.');
-  if (!safeEqual(sig, hmac(payload))) return null;
-  try {
-    const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    if (!data.id) return null;
-    return { id: data.id, name: data.name || '' };
-  } catch {
-    return null;
-  }
+  const raw = parseCookies(req)[COOKIE_USER];
+  return raw ? verifySession(raw, signingSecret()) : null;
 }
 
 export function setUserCookie(res, user) {
