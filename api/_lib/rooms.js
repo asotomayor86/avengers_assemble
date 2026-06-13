@@ -18,6 +18,11 @@ export class RoomError extends Error {
 
 const MAX_RETRIES = 6;
 
+// Cuentas atrás (ms) de las salas de liga: tiempo entre partidas de la serie y
+// tiempo de cortesía antes de devolver a todos al hub al acabar el partido.
+const INTERMISSION_MS = 5000;
+const RETURN_MS = 5000;
+
 // --- Acceso a BD ---
 
 async function readRoom(sql, code) {
@@ -160,10 +165,15 @@ export async function reconnect(rawCode, playerId) {
  * (que el userId esté en la sala del hub) la valida el endpoint ANTES de llamar aquí.
  * El primero en entrar es el anfitrión; los demás se van uniendo al abrir el juego.
  */
-export async function enterFromHub(rawCode, user) {
+export async function enterFromHub(rawCode, user, hubMeta = {}) {
   const code = normalizeCode(rawCode);
   const sql = getSql();
   const nickname = (String(user.name || '').trim().slice(0, 20)) || 'Jugador';
+
+  // ¿Es un partido de liga? Entonces se juega "al mejor de N" (best-of) y al
+  // terminar la serie se devuelve a todos al hub.
+  const isLeague = !!hubMeta.league;
+  const bestOf = isLeague ? Math.max(1, Number(hubMeta.winsNeeded) || 1) : 1;
 
   // Crear la sala del juego la primera vez (el primero en entrar es anfitrión).
   const existing = await readRoom(sql, code);
@@ -178,6 +188,10 @@ export async function enterFromHub(rawCode, user) {
       lastActivity: now(),
       game: null,
       fromHub: true, // marca que esta sala vino del hub → al acabar, enviar resultado
+      isLeague,
+      bestOf,
+      seriesWins: {}, // userId -> partidas ganadas en esta serie
+      seriesGame: 1, // número de partida dentro de la serie
     };
     try {
       await sql`
@@ -232,16 +246,45 @@ export async function startGame(code, requesterId) {
     room.game = createGame(room.players.map((p) => ({ id: p.id, nickname: p.nickname })));
     // Nueva partida (incluida la revancha): permitir enviar su resultado al hub.
     room.resultSent = false;
+    // Arranca una serie limpia (las salas de liga llevan marcador best-of).
+    room.phase = null;
+    room.resumeAt = null;
+    room.returnAt = null;
+    if (room.isLeague) {
+      room.seriesWins = {};
+      room.seriesGame = 1;
+      room.seriesWinner = null;
+    }
+    room.lastActivity = now();
+  });
+  return { room, version };
+}
+
+/**
+ * Arranca la siguiente partida de una serie de liga tras el intermedio. Es
+ * idempotente: solo actúa si la sala está en intermedio, así que aunque varios
+ * clientes la invoquen al acabar la cuenta atrás, solo se crea una partida.
+ */
+export async function nextGame(code) {
+  const { room, version } = await mutateRoom(normalizeCode(code), (room) => {
+    if (room.phase !== 'intermission') return; // ya avanzó o no procede
+    if (room.players.length < MIN_PLAYERS) return; // falta algún jugador
+    room.status = ROOM_STATUS.PLAYING;
+    room.game = createGame(room.players.map((p) => ({ id: p.id, nickname: p.nickname })));
+    room.phase = null;
+    room.resumeAt = null;
+    room.seriesGame = (room.seriesGame || 1) + 1;
     room.lastActivity = now();
   });
   return { room, version };
 }
 
 /** Construye el resultado para el hub: el ganador 'win', el resto 'loss'. */
-function resultadosParaHub(state) {
+function resultadosParaHub(state, winnerId) {
+  const ganador = winnerId ?? state.winner;
   return Object.keys(state.players || {}).map((uid) => ({
     userId: uid,
-    result: uid === state.winner ? 'win' : 'loss',
+    result: uid === ganador ? 'win' : 'loss',
   }));
 }
 
@@ -255,11 +298,40 @@ export async function applyGameAction(code, playerId, action) {
     room.game = state;
     if (state.status === 'finished') {
       room.status = ROOM_STATUS.FINISHED;
-      // Si la sala viene del hub y acaba de terminar, marcamos para enviar el
-      // resultado una sola vez (resultSent se persiste con el estado).
-      if (!yaTerminada && room.fromHub && !room.resultSent) {
-        room.resultSent = true;
-        enviarAlHub = resultadosParaHub(state);
+      if (!yaTerminada) {
+        if (room.isLeague) {
+          // Partido de liga: se juega al mejor de `bestOf`. Sumamos la victoria
+          // de esta partida y decidimos si la serie continúa o ha terminado.
+          const ganador = state.winner;
+          room.seriesWins = room.seriesWins || {};
+          if (ganador) {
+            room.seriesWins[ganador] = (room.seriesWins[ganador] || 0) + 1;
+          }
+          const objetivo = room.bestOf || 1;
+          const ganadorSerie = Object.keys(room.seriesWins).find(
+            (uid) => room.seriesWins[uid] >= objetivo,
+          );
+          if (ganadorSerie) {
+            // Serie terminada → enviar resultado al hub una sola vez y abrir la
+            // cuenta atrás para devolver a todos al hub.
+            room.phase = 'returning';
+            room.seriesWinner = ganadorSerie;
+            room.returnAt = now() + RETURN_MS;
+            if (room.fromHub && !room.resultSent) {
+              room.resultSent = true;
+              enviarAlHub = resultadosParaHub(state, ganadorSerie);
+            }
+          } else {
+            // Aún quedan partidas por ganar → intermedio con cuenta atrás antes
+            // de reiniciar automáticamente la siguiente partida.
+            room.phase = 'intermission';
+            room.resumeAt = now() + INTERMISSION_MS;
+          }
+        } else if (room.fromHub && !room.resultSent) {
+          // Sala suelta (no liga): se envía el resultado de la única partida.
+          room.resultSent = true;
+          enviarAlHub = resultadosParaHub(state);
+        }
       }
     }
     room.lastActivity = now();
@@ -345,6 +417,21 @@ export function serializeRoom(room) {
       isHost: p.isHost,
       connected: p.connected,
     })),
+    // Estado de la serie best-of para los partidos de liga (null si no es liga).
+    // `now` permite al cliente corregir el desfase de reloj en las cuentas atrás.
+    series: room.isLeague
+      ? {
+          isLeague: true,
+          bestOf: room.bestOf || 1,
+          wins: room.seriesWins || {},
+          gameNumber: room.seriesGame || 1,
+          phase: room.phase || null, // 'intermission' | 'returning' | null
+          resumeAt: room.resumeAt || null,
+          returnAt: room.returnAt || null,
+          winner: room.seriesWinner || null,
+          now: now(),
+        }
+      : null,
   };
 }
 

@@ -4,7 +4,7 @@ import { createHubAuth } from '@asotomayor86/hub-client/browser';
 
 // URL base del hub. Aceptamos VITE_HUB_URL o derivamos de VITE_NEON_AUTH_URL
 // (quitando el sufijo /api/auth que usaba la versión anterior).
-const HUB_URL =
+export const HUB_URL =
   import.meta.env.VITE_HUB_URL ||
   (import.meta.env.VITE_NEON_AUTH_URL || 'https://one-page-to-rule-them-all.vercel.app/api/auth').replace(
     /\/api\/auth\/?$/,

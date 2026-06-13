@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { EVENTS } from '../../../shared/constants.js';
 import { emitAsync } from '../socket.js';
+import { HUB_URL } from '../auth.js';
 import { describeTargeting, slotKey } from '../game/targeting.js';
 import PlayerZone from '../components/PlayerZone.jsx';
 import HeroSlot from '../components/HeroSlot.jsx';
@@ -401,7 +402,15 @@ export default function GameBoard({ room, game, myId, onLeave }) {
       )}
 
       {game.status === 'finished' && (
-        <EndOverlay game={game} room={room} myId={myId} nick={nick} onLeave={onLeave} onRestart={() => emitAsync(EVENTS.ROOM_RESTART, {})} />
+        <EndOverlay
+          game={game}
+          room={room}
+          myId={myId}
+          nick={nick}
+          onLeave={onLeave}
+          onRestart={() => emitAsync(EVENTS.ROOM_RESTART, {})}
+          onNext={() => emitAsync(EVENTS.ROOM_NEXT, {})}
+        />
       )}
 
       {/* Carta fantasma que sigue al dedo/ratón mientras arrastras */}
@@ -652,13 +661,43 @@ function SpyModal({ pending, game, myId, onPlay }) {
   );
 }
 
+// --- Cuenta atrás sincronizada con el servidor ---
+// `target` y `serverNow` vienen del mismo snapshot del servidor: corregimos el
+// desfase de reloj fijando el final relativo al reloj local al montar.
+function Countdown({ target, serverNow, onDone }) {
+  const [secs, setSecs] = useState(() => Math.max(0, Math.ceil((target - serverNow) / 1000)));
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  useEffect(() => {
+    let fired = false;
+    const endLocal = Date.now() + (target - serverNow);
+    const tick = () => {
+      const ms = endLocal - Date.now();
+      setSecs(Math.max(0, Math.ceil(ms / 1000)));
+      if (ms <= 0 && !fired) {
+        fired = true;
+        onDoneRef.current?.();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [target, serverNow]);
+  return <strong className="end-countdown">{secs}</strong>;
+}
+
 // --- Fin de partida ---
-function EndOverlay({ game, room, myId, nick, onLeave, onRestart }) {
+function EndOverlay({ game, room, myId, nick, onLeave, onRestart, onNext }) {
   // Al ganar, el fondo gana presencia (más opaco) para celebrarlo.
   useEffect(() => {
     document.body.classList.add('celebrate');
     return () => document.body.classList.remove('celebrate');
   }, []);
+
+  // Partido de liga: marcador best-of, reinicio automático y vuelta al hub.
+  if (room.series?.isLeague) {
+    return <LeagueEndOverlay game={game} room={room} myId={myId} nick={nick} onNext={onNext} />;
+  }
 
   const isHost = room.players.find((p) => p.id === myId)?.isHost;
   const iWon = game.winner === myId;
@@ -681,6 +720,74 @@ function EndOverlay({ game, room, myId, nick, onLeave, onRestart }) {
             Volver al lobby
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Fin de partida en una liga (serie al mejor de N) ---
+function LeagueEndOverlay({ game, room, myId, nick, onNext }) {
+  const series = room.series;
+  const iWon = game.winner === myId;
+  const returning = series.phase === 'returning';
+  const seriesWinner = series.winner;
+  const iWonSeries = seriesWinner === myId;
+
+  // Marcador de la serie (en 1v1: yo vs el rival).
+  const marcador = game.players.map((p) => ({
+    id: p.id,
+    nick: nick(p.id),
+    wins: series.wins?.[p.id] || 0,
+    me: p.id === myId,
+  }));
+
+  const volverAlHub = () => {
+    window.location.href = `${HUB_URL}/ligas`;
+  };
+
+  return (
+    <div className="end-overlay">
+      <div className="end-content">
+        <p className="end-sub">
+          Partida {series.gameNumber} · al mejor de {series.bestOf}
+        </p>
+        <h2 className={`end-title ${iWon ? 'win' : ''}`}>
+          {iWon ? '¡Has ganado esta partida!' : `Gana ${nick(game.winner)}`}
+        </h2>
+
+        <div className="series-score">
+          {marcador.map((m, i) => [
+            i > 0 && (
+              <span key={`sep-${i}`} className="series-sep">
+                –
+              </span>
+            ),
+            <span key={m.id} className={`series-player ${m.me ? 'me' : ''}`}>
+              <span className="series-name">{m.nick}</span>
+              <span className="series-wins">{m.wins}</span>
+            </span>,
+          ])}
+        </div>
+
+        {returning ? (
+          <div className="end-returning">
+            <p className={`end-series-result ${iWonSeries ? 'win' : ''}`}>
+              {iWonSeries ? '🏆 ¡Ganas el partido!' : `Gana el partido ${nick(seriesWinner)}`}
+            </p>
+            <p className="muted">
+              Volviendo al HUB en{' '}
+              <Countdown target={series.returnAt} serverNow={series.now} onDone={volverAlHub} />…
+            </p>
+            <button className="btn btn-ghost btn-sm" onClick={volverAlHub}>
+              Volver ahora
+            </button>
+          </div>
+        ) : (
+          <p className="muted">
+            Siguiente partida en{' '}
+            <Countdown target={series.resumeAt} serverNow={series.now} onDone={onNext} />…
+          </p>
+        )}
       </div>
     </div>
   );

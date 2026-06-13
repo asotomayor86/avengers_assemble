@@ -52,6 +52,10 @@ export async function emitAsync(event, payload = {}) {
       const r = await http('POST', `/api/rooms/${enc(code)}/start`, { playerId });
       return { room: r.room };
     }
+    case EVENTS.ROOM_NEXT: {
+      const r = await http('POST', `/api/rooms/${enc(code)}/next`, { playerId });
+      return { room: r.room, game: r.game };
+    }
     case EVENTS.ROOM_LEAVE: {
       const r = await http('POST', `/api/rooms/${enc(code)}/leave`, { playerId });
       return { room: r.room };
