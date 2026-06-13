@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { EVENTS, ROOM_STATUS } from '../../shared/constants.js';
-import { emitAsync, subscribeRoom, checkAuth, logout } from './socket.js';
+import { emitAsync, subscribeRoom, checkAuth, logout, enterHubRoom } from './socket.js';
 import { session } from './state/session.js';
 import LoginScreen from './pages/LoginScreen.jsx';
 import Lobby from './pages/Lobby.jsx';
@@ -11,6 +11,12 @@ import AdminScreen from './pages/AdminScreen.jsx';
 // El panel de administración vive en la ruta con hash #admin.
 const IS_ADMIN_ROUTE =
   typeof window !== 'undefined' && window.location.hash.replace('#', '') === 'admin';
+
+// Código de sala del hub que abre el juego: URL ?sala=CÓDIGO.
+const SALA_CODE =
+  typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('sala') || '').trim().toUpperCase()
+    : '';
 
 export default function App() {
   if (IS_ADMIN_ROUTE) return <AdminScreen />;
@@ -54,6 +60,27 @@ function PlayerApp() {
     [stopSub]
   );
 
+  // Entra en una sala creada en el hub (flujo ?sala=CÓDIGO): valida contra el hub
+  // y siembra/une la sala del juego, saltándose el lobby propio.
+  const entrarEnSala = useCallback(
+    async (code) => {
+      try {
+        const res = await enterHubRoom(code);
+        const nick = res.room?.players?.find((p) => p.id === res.playerId)?.nickname;
+        session.setRoom(res.code, res.playerId, nick);
+        setRoom(res.room);
+        setGame(res.game ?? null);
+        setNotice(null);
+        setScreen('room');
+        startSub(res.code, res.playerId);
+      } catch (err) {
+        setNotice(err.message || 'No se pudo entrar en la sala.');
+        setScreen('lobby');
+      }
+    },
+    [startSub]
+  );
+
   // Arranque: comprobar acceso (cookie) e intentar reconectar a la sala guardada.
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +89,11 @@ function PlayerApp() {
         if (cancelled) return;
         if (!isSite) {
           setScreen('access');
+          return;
+        }
+        // Si el juego se abrió desde una sala del hub, entramos directos.
+        if (SALA_CODE) {
+          entrarEnSala(SALA_CODE);
           return;
         }
         const saved = session.getRoom();
@@ -90,10 +122,15 @@ function PlayerApp() {
       cancelled = true;
       stopSub();
     };
-  }, [startSub, stopSub]);
+  }, [startSub, stopSub, entrarEnSala]);
 
   const handleAccessGranted = () => {
     setNotice(null);
+    // Si se abrió desde una sala del hub, entramos directos; si no, al lobby.
+    if (SALA_CODE) {
+      entrarEnSala(SALA_CODE);
+      return;
+    }
     setScreen('lobby');
   };
 

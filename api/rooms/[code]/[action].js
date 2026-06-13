@@ -1,11 +1,13 @@
 import { wrap, methodGuard } from '../../_lib/handler.js';
 import { requireSite } from '../../_lib/auth.js';
+import { getHubRoom, esJugadorDeSala } from '../../_lib/hub.js';
 import {
   joinRoom,
   reconnect,
   startGame,
   leaveRoom,
   applyGameAction,
+  enterFromHub,
   serializeRoom,
   gameStateFor,
 } from '../../_lib/rooms.js';
@@ -15,12 +17,39 @@ import {
 // (join | reconnect | start | leave | action) selecciona la operación.
 export default wrap(async (req, res) => {
   if (!methodGuard(req, res, ['POST', 'PUT'])) return;
-  if (!requireSite(req, res)) return;
+  const auth = requireSite(req, res);
+  if (!auth) return;
 
   const code = req.query.code;
   const body = req.body || {};
 
   switch (req.query.action) {
+    case 'enter': {
+      // Entrada desde una sala del HUB: exige usuario identificado y que esté en
+      // la sala del hub. Siembra/une la sala del juego con el userId del hub.
+      if (!auth.user) {
+        return res.status(401).json({ error: 'Inicia sesión con tu cuenta.' });
+      }
+      const sala = await getHubRoom(code);
+      if (!sala) {
+        return res
+          .status(404)
+          .json({ error: 'Esa sala no existe en el hub o ya está cerrada.' });
+      }
+      if (!esJugadorDeSala(sala, auth.user.id)) {
+        return res
+          .status(403)
+          .json({ error: 'No estás en los jugadores de esta sala.' });
+      }
+      const { room, playerId, version } = await enterFromHub(code, auth.user);
+      return res.status(200).json({
+        code: room.code,
+        playerId,
+        version,
+        room: serializeRoom(room),
+        game: gameStateFor(room, playerId),
+      });
+    }
     case 'join': {
       const { room, playerId, version } = await joinRoom(code, body.nickname);
       return res

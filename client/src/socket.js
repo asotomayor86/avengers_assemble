@@ -82,6 +82,14 @@ export function setServerSession(user) {
   return http('POST', '/api/access', { userId: user.id, name: user.name });
 }
 
+/**
+ * Entra en una sala creada en el hub: valida la pertenencia contra el hub y
+ * siembra/une la sala del juego. Devuelve { code, playerId, room, game }.
+ */
+export function enterHubRoom(code) {
+  return http('POST', `/api/rooms/${encodeURIComponent(code)}/enter`);
+}
+
 /** Lista de salas activas (código, estado, jugadores) para el lobby. */
 export function listActiveRooms() {
   return http('GET', '/api/rooms');

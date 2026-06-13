@@ -153,6 +153,67 @@ export async function reconnect(rawCode, playerId) {
   return { room, version };
 }
 
+/**
+ * Entra a una sala creada en el HUB. La sala del juego se identifica con el MISMO
+ * código del hub, y el id de jugador del juego es el userId del hub. La pertenencia
+ * (que el userId esté en la sala del hub) la valida el endpoint ANTES de llamar aquí.
+ * El primero en entrar es el anfitrión; los demás se van uniendo al abrir el juego.
+ */
+export async function enterFromHub(rawCode, user) {
+  const code = normalizeCode(rawCode);
+  const sql = getSql();
+  const nickname = (String(user.name || '').trim().slice(0, 20)) || 'Jugador';
+
+  // Crear la sala del juego la primera vez (el primero en entrar es anfitrión).
+  const existing = await readRoom(sql, code);
+  if (!existing) {
+    const player = { id: user.id, nickname, isHost: true, connected: true, lastSeen: now() };
+    const room = {
+      code,
+      hostId: user.id,
+      status: ROOM_STATUS.WAITING,
+      players: [player],
+      createdAt: now(),
+      lastActivity: now(),
+      game: null,
+    };
+    try {
+      await sql`
+        INSERT INTO rooms (code, state, version, status)
+        VALUES (${code}, ${JSON.stringify(room)}::jsonb, 0, ${room.status})`;
+      return { room, playerId: user.id, version: 0 };
+    } catch (err) {
+      if (!String(err.message).includes('duplicate key')) throw err;
+      // Otra petición la creó a la vez → seguimos a unirse.
+    }
+  }
+
+  // Unirse o reconectar, identificando por userId (no por apodo).
+  const { room, version } = await mutateRoom(code, (room) => {
+    const mine = room.players.find((p) => p.id === user.id);
+    if (mine) {
+      mine.connected = true;
+      mine.lastSeen = now();
+      mine.nickname = nickname;
+      room.lastActivity = now();
+      return;
+    }
+    if (room.status !== ROOM_STATUS.WAITING) {
+      const gp = room.game?.players?.[user.id];
+      if (!gp) throw new RoomError('La partida ya ha empezado en esta sala.');
+      room.players.push({ id: user.id, nickname, isHost: false, connected: true, lastSeen: now() });
+      room.lastActivity = now();
+      return;
+    }
+    if (room.players.length >= MAX_PLAYERS) {
+      throw new RoomError(`La sala está llena (máximo ${MAX_PLAYERS} jugadores).`);
+    }
+    room.players.push({ id: user.id, nickname, isHost: false, connected: true, lastSeen: now() });
+    room.lastActivity = now();
+  });
+  return { room, playerId: user.id, version };
+}
+
 /** Empieza la partida (o la reinicia si ya terminó). Solo el anfitrión. */
 export async function startGame(code, requesterId) {
   const { room, version } = await mutateRoom(normalizeCode(code), (room) => {
