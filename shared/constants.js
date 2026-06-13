@@ -27,6 +27,7 @@ export const EVENTS = {
   ROOM_LEAVE: 'room:leave',
   ROOM_START: 'room:start',
   ROOM_RESTART: 'room:restart',
+  ROOM_NEXT: 'room:next',
   GAME_ACTION: 'game:action',
   ADMIN_LIST: 'admin:list',
   ADMIN_CLOSE: 'admin:close',

@@ -10,6 +10,11 @@ const NEON_AUTH_URL =
   import.meta.env.VITE_NEON_AUTH_URL ||
   'https://one-page-to-rule-them-all.vercel.app/api/auth';
 
+// URL base del hub (sin el sufijo /api/auth). Se usa para devolver al jugador al
+// hub al terminar un partido de liga.
+export const HUB_URL =
+  import.meta.env.VITE_HUB_URL || NEON_AUTH_URL.replace(/\/api\/auth\/?$/, '');
+
 export const authClient = createAuthClient(NEON_AUTH_URL);
 
 /** Inicia sesión con email+contraseña del hub. Devuelve { id, name } o lanza error. */

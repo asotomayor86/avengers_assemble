@@ -1205,6 +1205,67 @@ body.celebrate::before {
   border-color: #b49bf0;
 }
 
+/* --- Fin de partida en LIGA: marcador best-of y cuenta atrás --- */
+.series-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 4px 0 18px;
+}
+.series-player {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 84px;
+}
+.series-name {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.series-player.me .series-name {
+  color: #b49bf0;
+  font-weight: 700;
+}
+.series-wins {
+  font-family: 'Avengeance', system-ui, sans-serif;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: #fff;
+}
+.series-player.me .series-wins {
+  color: #b49bf0;
+}
+.series-sep {
+  font-size: 1.6rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+.end-series-result {
+  font-family: 'Avengeance', system-ui, sans-serif;
+  font-size: 1.4rem;
+  margin: 0 0 6px;
+  color: #fff;
+}
+.end-series-result.win {
+  color: #b49bf0;
+}
+.end-returning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.end-countdown {
+  font-family: 'Avengeance', system-ui, sans-serif;
+  color: #b49bf0;
+  font-size: 1.2em;
+}
+
 /* ============================================================
    RESPONSIVE
    El móvil es la base (todo lo de arriba). Aquí SOLO ensanchamos

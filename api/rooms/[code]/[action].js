@@ -5,6 +5,7 @@ import {
   joinRoom,
   reconnect,
   startGame,
+  nextGame,
   leaveRoom,
   applyGameAction,
   enterFromHub,
@@ -46,10 +47,11 @@ export default wrap(async (req, res) => {
           .status(403)
           .json({ error: 'No estás en los jugadores de esta sala.' });
       }
-      const { room, playerId, version } = await enterFromHub(code, {
-        id: auth.user.id,
-        name: jugador.name,
-      });
+      const { room, playerId, version } = await enterFromHub(
+        code,
+        { id: auth.user.id, name: jugador.name },
+        { league: sala.league, winsNeeded: sala.winsNeeded },
+      );
       return res.status(200).json({
         code: room.code,
         playerId,
@@ -77,6 +79,15 @@ export default wrap(async (req, res) => {
     case 'start': {
       const { room, version } = await startGame(code, body.playerId);
       return res.status(200).json({ version, room: serializeRoom(room) });
+    }
+    case 'next': {
+      // Reinicio automático de la siguiente partida de una serie de liga.
+      const { room, version } = await nextGame(code);
+      return res.status(200).json({
+        version,
+        room: serializeRoom(room),
+        game: gameStateFor(room, body.playerId),
+      });
     }
     case 'leave': {
       const result = await leaveRoom(code, body.playerId);
