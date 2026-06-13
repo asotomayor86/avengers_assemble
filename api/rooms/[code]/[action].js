@@ -1,6 +1,6 @@
 import { wrap, methodGuard } from '../../_lib/handler.js';
 import { requireSite } from '../../_lib/auth.js';
-import { getHubRoom, esJugadorDeSala } from '../../_lib/hub.js';
+import { getHubRoom } from '../../_lib/hub.js';
 import {
   joinRoom,
   reconnect,
@@ -36,12 +36,20 @@ export default wrap(async (req, res) => {
           .status(404)
           .json({ error: 'Esa sala no existe en el hub o ya está cerrada.' });
       }
-      if (!esJugadorDeSala(sala, auth.user.id)) {
+      // Buscamos al jugador en la sala del hub; usamos SU nombre (apodo/nombre del
+      // perfil del hub), no el de Neon Auth, para que coincida con el hub.
+      const jugador = (sala.players || []).find(
+        (p) => p.userId === auth.user.id && p.role === 'player',
+      );
+      if (!jugador) {
         return res
           .status(403)
           .json({ error: 'No estás en los jugadores de esta sala.' });
       }
-      const { room, playerId, version } = await enterFromHub(code, auth.user);
+      const { room, playerId, version } = await enterFromHub(code, {
+        id: auth.user.id,
+        name: jugador.name,
+      });
       return res.status(200).json({
         code: room.code,
         playerId,
