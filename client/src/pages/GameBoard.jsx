@@ -86,6 +86,18 @@ export default function GameBoard({ room, game, myId, onLeave }) {
   const myTurn = game.currentPlayer === myId;
   const finished = game.status === 'finished';
 
+  // Pequeña pausa antes de mostrar la pantalla de victoria, para que dé tiempo
+  // a ver la animación de la última carta jugada que cierra la partida.
+  const [showEnd, setShowEnd] = useState(false);
+  useEffect(() => {
+    if (!finished) {
+      setShowEnd(false);
+      return undefined;
+    }
+    const t = setTimeout(() => setShowEnd(true), 2000);
+    return () => clearTimeout(t);
+  }, [finished]);
+
   // Avisos visuales derivados de lastAction (descarte, jugada sobre héroe/zona y
   // Chasquido), con un contador monótono `n` global. Inicializamos a la acción
   // presente al entrar al tablero, así solo animamos las POSTERIORES (y al reconectar
@@ -276,7 +288,26 @@ export default function GameBoard({ room, game, myId, onLeave }) {
 
       {game.status === 'playing' && (
         <div key={game.currentPlayer} className={`turn-line ${myTurn ? 'mine' : 'other'}`}>
-          {myTurn ? 'Tu turno' : `Turno de ${nick(game.currentPlayer)}`}
+          <span>
+            {myTurn ? 'Tu turno' : `Turno de ${nick(game.currentPlayer)}`}
+          </span>
+          {!pending && game.turnDeadline && (
+            <TurnTimer
+              deadline={game.turnDeadline}
+              serverNow={game.serverNow}
+              urgentMs={5000}
+              onExpire={
+                canAct
+                  ? () => {
+                      // Auto-descarte de la primera carta de la mano: el jugador
+                      // no puede quedarse paralizado en el turno.
+                      const card = (game.hand || [])[0];
+                      if (card) emitAsync(EVENTS.GAME_ACTION, { type: 'discard', cardIds: [card.id] });
+                    }
+                  : null
+              }
+            />
+          )}
         </div>
       )}
 
@@ -401,14 +432,12 @@ export default function GameBoard({ room, game, myId, onLeave }) {
         <Banner text={`${nick(pending.actorId)} espía a ${nick(pending.victimId)}…`} />
       )}
 
-      {game.status === 'finished' && (
+      {finished && showEnd && (
         <EndOverlay
           game={game}
           room={room}
           myId={myId}
           nick={nick}
-          onLeave={onLeave}
-          onRestart={() => emitAsync(EVENTS.ROOM_RESTART, {})}
           onNext={() => emitAsync(EVENTS.ROOM_NEXT, {})}
         />
       )}
@@ -686,64 +715,92 @@ function Countdown({ target, serverNow, onDone }) {
   return <strong className="end-countdown">{secs}</strong>;
 }
 
+/**
+ * Cuenta atrás del turno actual. Muestra segundos y dispara `onExpire` una vez
+ * al llegar a 0 si la partida sigue activa y el jugador es el actor. Pinta el
+ * número en `urgent` cuando queda poco.
+ */
+function TurnTimer({ deadline, serverNow, urgentMs = 5000, onExpire }) {
+  const [ms, setMs] = useState(() => Math.max(0, deadline - serverNow));
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+  useEffect(() => {
+    let fired = false;
+    const endLocal = Date.now() + (deadline - serverNow);
+    const tick = () => {
+      const m = endLocal - Date.now();
+      setMs(Math.max(0, m));
+      if (m <= 0 && !fired) {
+        fired = true;
+        onExpireRef.current?.();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [deadline, serverNow]);
+  const secs = Math.ceil(ms / 1000);
+  const urgent = ms <= urgentMs;
+  return (
+    <span
+      className={`turn-timer ${urgent ? 'urgent' : ''}`}
+      title="Tiempo restante del turno"
+      aria-label={`${secs} segundos restantes`}
+    >
+      ⏱ {secs}s
+    </span>
+  );
+}
+
 // --- Fin de partida ---
-function EndOverlay({ game, room, myId, nick, onLeave, onRestart, onNext }) {
+//
+// Pantalla estándar para todas las salas (suelta o de liga): marcador de la
+// serie + cuenta atrás automática a la siguiente partida o al hub. Nunca hay
+// botón manual de "Jugar otra": si la serie no ha llegado al objetivo, te
+// lleva a la siguiente partida sin más; si lo ha alcanzado, te devuelve al
+// hub. La cuenta atrás del propio servidor se renueva en cada partida.
+function EndOverlay({ game, room, myId, nick, onNext }) {
   // Al ganar, el fondo gana presencia (más opaco) para celebrarlo.
   useEffect(() => {
     document.body.classList.add('celebrate');
     return () => document.body.classList.remove('celebrate');
   }, []);
 
-  // Partido de liga: marcador best-of, reinicio automático y vuelta al hub.
-  if (room.series?.isLeague) {
-    return <LeagueEndOverlay game={game} room={room} myId={myId} nick={nick} onNext={onNext} />;
-  }
-
-  const isHost = room.players.find((p) => p.id === myId)?.isHost;
-  const iWon = game.winner === myId;
-  return (
-    <div className="end-overlay">
-      <div className="end-content">
-        <p className="end-sub">{iWon ? '¡Victoria!' : 'Fin de la partida'}</p>
-        <h2 className={`end-title ${iWon ? 'win' : ''}`}>
-          {iWon ? '¡Has ganado!' : `Gana ${nick(game.winner)}`}
-        </h2>
-        <div className="modal-btns">
-          {isHost ? (
-            <button className="btn btn-primary" onClick={onRestart}>
-              Jugar otra
-            </button>
-          ) : (
-            <p className="muted">Esperando a que el anfitrión empiece otra…</p>
-          )}
-          <button className="btn btn-ghost" onClick={onLeave}>
-            Volver al lobby
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- Fin de partida en una liga (serie al mejor de N) ---
-function LeagueEndOverlay({ game, room, myId, nick, onNext }) {
   const series = room.series;
   const iWon = game.winner === myId;
+
+  const volverAlHub = () => {
+    window.location.href = HUB_URL;
+  };
+
+  // Fallback defensivo: si por alguna razón no llega `series` (salas legacy),
+  // mandamos al hub directamente sin botones.
+  if (!series) {
+    return (
+      <div className="end-overlay">
+        <div className="end-content">
+          <p className="end-sub">Fin de la partida</p>
+          <h2 className={`end-title ${iWon ? 'win' : ''}`}>
+            {iWon ? '¡Has ganado!' : `Gana ${nick(game.winner)}`}
+          </h2>
+          <p className="muted">Volviendo al HUB en breve…</p>
+          <SafeRedirect delayMs={5000} to={HUB_URL} />
+        </div>
+      </div>
+    );
+  }
+
   const returning = series.phase === 'returning';
   const seriesWinner = series.winner;
   const iWonSeries = seriesWinner === myId;
 
-  // Marcador de la serie (en 1v1: yo vs el rival).
+  // Marcador de la serie con todos los jugadores en orden de la partida.
   const marcador = game.players.map((p) => ({
     id: p.id,
     nick: nick(p.id),
     wins: series.wins?.[p.id] || 0,
     me: p.id === myId,
   }));
-
-  const volverAlHub = () => {
-    window.location.href = `${HUB_URL}/ligas`;
-  };
 
   return (
     <div className="end-overlay">
@@ -778,9 +835,6 @@ function LeagueEndOverlay({ game, room, myId, nick, onNext }) {
               Volviendo al HUB en{' '}
               <Countdown target={series.returnAt} serverNow={series.now} onDone={volverAlHub} />…
             </p>
-            <button className="btn btn-ghost btn-sm" onClick={volverAlHub}>
-              Volver ahora
-            </button>
           </div>
         ) : (
           <p className="muted">
@@ -791,4 +845,15 @@ function LeagueEndOverlay({ game, room, myId, nick, onNext }) {
       </div>
     </div>
   );
+}
+
+/** Redirección programada (para el fallback sin series). */
+function SafeRedirect({ delayMs, to }) {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      window.location.href = to;
+    }, delayMs);
+    return () => clearTimeout(t);
+  }, [delayMs, to]);
+  return null;
 }

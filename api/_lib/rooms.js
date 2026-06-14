@@ -170,10 +170,11 @@ export async function enterFromHub(rawCode, user, hubMeta = {}) {
   const sql = getSql();
   const nickname = (String(user.name || '').trim().slice(0, 20)) || 'Jugador';
 
-  // ¿Es un partido de liga? Entonces se juega "al mejor de N" (best-of) y al
-  // terminar la serie se devuelve a todos al hub.
+  // Toda partida que viene del hub se juega "al mejor de N" usando el
+  // winsNeeded que define la sala (1 por defecto). Al terminar la serie se
+  // devuelve a todos al hub. `isLeague` se conserva solo a título informativo.
   const isLeague = !!hubMeta.league;
-  const bestOf = isLeague ? Math.max(1, Number(hubMeta.winsNeeded) || 1) : 1;
+  const bestOf = Math.max(1, Number(hubMeta.winsNeeded) || 1);
 
   // Crear la sala del juego la primera vez (el primero en entrar es anfitrión).
   const existing = await readRoom(sql, code);
@@ -246,15 +247,13 @@ export async function startGame(code, requesterId) {
     room.game = createGame(room.players.map((p) => ({ id: p.id, nickname: p.nickname })));
     // Nueva partida (incluida la revancha): permitir enviar su resultado al hub.
     room.resultSent = false;
-    // Arranca una serie limpia (las salas de liga llevan marcador best-of).
+    // Arranca una serie limpia para todos (best-of de la sala del hub).
     room.phase = null;
     room.resumeAt = null;
     room.returnAt = null;
-    if (room.isLeague) {
-      room.seriesWins = {};
-      room.seriesGame = 1;
-      room.seriesWinner = null;
-    }
+    room.seriesWins = {};
+    room.seriesGame = 1;
+    room.seriesWinner = null;
     room.lastActivity = now();
   });
   return { room, version };
@@ -299,38 +298,33 @@ export async function applyGameAction(code, playerId, action) {
     if (state.status === 'finished') {
       room.status = ROOM_STATUS.FINISHED;
       if (!yaTerminada) {
-        if (room.isLeague) {
-          // Partido de liga: se juega al mejor de `bestOf`. Sumamos la victoria
-          // de esta partida y decidimos si la serie continúa o ha terminado.
-          const ganador = state.winner;
-          room.seriesWins = room.seriesWins || {};
-          if (ganador) {
-            room.seriesWins[ganador] = (room.seriesWins[ganador] || 0) + 1;
+        // Toda sala (sea de liga o no) se juega al mejor de `bestOf`. Sumamos la
+        // victoria de esta partida y decidimos si la serie continúa o ha
+        // terminado. Cuando termina, mandamos el resultado al hub una sola vez.
+        const ganador = state.winner;
+        room.seriesWins = room.seriesWins || {};
+        if (ganador) {
+          room.seriesWins[ganador] = (room.seriesWins[ganador] || 0) + 1;
+        }
+        const objetivo = room.bestOf || 1;
+        const ganadorSerie = Object.keys(room.seriesWins).find(
+          (uid) => room.seriesWins[uid] >= objetivo,
+        );
+        if (ganadorSerie) {
+          // Serie terminada → enviar resultado al hub una sola vez y abrir la
+          // cuenta atrás para devolver a todos al hub.
+          room.phase = 'returning';
+          room.seriesWinner = ganadorSerie;
+          room.returnAt = now() + RETURN_MS;
+          if (room.fromHub && !room.resultSent) {
+            room.resultSent = true;
+            enviarAlHub = resultadosParaHub(state, ganadorSerie);
           }
-          const objetivo = room.bestOf || 1;
-          const ganadorSerie = Object.keys(room.seriesWins).find(
-            (uid) => room.seriesWins[uid] >= objetivo,
-          );
-          if (ganadorSerie) {
-            // Serie terminada → enviar resultado al hub una sola vez y abrir la
-            // cuenta atrás para devolver a todos al hub.
-            room.phase = 'returning';
-            room.seriesWinner = ganadorSerie;
-            room.returnAt = now() + RETURN_MS;
-            if (room.fromHub && !room.resultSent) {
-              room.resultSent = true;
-              enviarAlHub = resultadosParaHub(state, ganadorSerie);
-            }
-          } else {
-            // Aún quedan partidas por ganar → intermedio con cuenta atrás antes
-            // de reiniciar automáticamente la siguiente partida.
-            room.phase = 'intermission';
-            room.resumeAt = now() + INTERMISSION_MS;
-          }
-        } else if (room.fromHub && !room.resultSent) {
-          // Sala suelta (no liga): se envía el resultado de la única partida.
-          room.resultSent = true;
-          enviarAlHub = resultadosParaHub(state);
+        } else {
+          // Aún quedan partidas por ganar → intermedio con cuenta atrás antes
+          // de reiniciar automáticamente la siguiente partida.
+          room.phase = 'intermission';
+          room.resumeAt = now() + INTERMISSION_MS;
         }
       }
     }
@@ -417,11 +411,11 @@ export function serializeRoom(room) {
       isHost: p.isHost,
       connected: p.connected,
     })),
-    // Estado de la serie best-of para los partidos de liga (null si no es liga).
+    // Estado de la serie best-of (presente siempre que la sala venga del hub).
     // `now` permite al cliente corregir el desfase de reloj en las cuentas atrás.
-    series: room.isLeague
+    series: room.fromHub
       ? {
-          isLeague: true,
+          isLeague: !!room.isLeague,
           bestOf: room.bestOf || 1,
           wins: room.seriesWins || {},
           gameNumber: room.seriesGame || 1,

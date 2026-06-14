@@ -833,6 +833,32 @@ body.celebrate::before {
   color: rgba(255, 255, 255, 0.55);
   font-size: 1.8rem;
 }
+.turn-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.7rem;
+}
+.turn-timer {
+  font-family: 'Avengeance', system-ui, sans-serif;
+  font-size: 1.4rem;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.05em;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.turn-timer.urgent {
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.55);
+  background: rgba(120, 12, 12, 0.35);
+  animation: turn-timer-pulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes turn-timer-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
 
 /* Ventana flotante de ayuda al pasar el cursor por la etiqueta "Acción" */
 .card-tip {

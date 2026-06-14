@@ -18,6 +18,7 @@ import {
 
 const HAND_SIZE = 3;
 const INITIAL_DEAL = 3;
+const TURN_LIMIT_MS = 20_000;
 
 /** Error de validación de jugada (mensaje legible para el cliente). */
 export class GameError extends Error {
@@ -38,17 +39,21 @@ export class GameError extends Error {
  */
 export function createGame(players, opts = {}) {
   const seed = opts.seed ?? Math.floor(Math.random() * 1e9);
-  const deck = opts.deck ? [...opts.deck] : shuffle(buildDeck(), seededRng(seed));
+  const rng = seededRng(seed);
+  // Jugador inicial aleatorio: el orden completo se baraja con el mismo RNG
+  // sembrado que el mazo, así sigue siendo reproducible si se replica el seed.
+  const playerOrder = shuffle(players.map((p) => p.id), rng);
+  const deck = opts.deck ? [...opts.deck] : shuffle(buildDeck(), rng);
 
   const state = {
-    playerOrder: players.map((p) => p.id),
+    playerOrder,
     players: Object.fromEntries(players.map((p) => [p.id, { id: p.id, nickname: p.nickname }])),
     hands: Object.fromEntries(players.map((p) => [p.id, []])),
     teams: Object.fromEntries(players.map((p) => [p.id, []])),
     deck,
     discard: [],
     turnIndex: 0,
-    currentPlayer: players[0].id,
+    currentPlayer: playerOrder[0],
     status: 'playing',
     winner: null,
     noDraw: Object.fromEntries(players.map((p) => [p.id, 0])),
@@ -57,6 +62,9 @@ export function createGame(players, opts = {}) {
     logSeq: 0,
     rngSeed: seed,
     reshuffleCount: 0,
+    // Cuenta atrás del turno actual (cliente la usa para mostrar el reloj y para
+    // auto-descartar si se agota). Se renueva en cada cambio de turno.
+    turnDeadline: Date.now() + TURN_LIMIT_MS,
   };
 
   // Reparto inicial: 3 cartas a cada jugador.
@@ -158,6 +166,7 @@ function drawTo(state, playerId, target) {
 function advanceTurn(state) {
   state.turnIndex = (state.turnIndex + 1) % state.playerOrder.length;
   state.currentPlayer = state.playerOrder[state.turnIndex];
+  state.turnDeadline = Date.now() + TURN_LIMIT_MS;
 }
 
 /** Comprueba victoria: prioridad al jugador en turno, luego el resto. */
@@ -187,6 +196,7 @@ function finishTurn(state, actorId, extraTurn, events) {
 
   if (extraTurn) {
     log(state, events, `↻ ${name(state, actorId)} juega un turno extra (carta multicolor).`);
+    state.turnDeadline = Date.now() + TURN_LIMIT_MS;
   } else {
     advanceTurn(state);
   }
@@ -760,9 +770,11 @@ function handleSpyChoice(state, action, playerId, events) {
   const p = state.pending;
   if (playerId !== p.actorId) throw new GameError('No te toca elegir en el espionaje.');
 
-  // La víctima siempre queda penalizada sin robo (la espiaron).
+  // La víctima ya ha perdido la carta espiada en el momento del espionaje
+  // (Viuda Negra). Antes se aplicaba una penalización adicional al final de
+  // su próximo turno (robar 1 menos); ahora la quitamos: al terminar su
+  // jugada la víctima recupera las 3 cartas normales.
   const finishSpy = (extraTurn) => {
-    state.noDraw[p.victimId] = (state.noDraw[p.victimId] || 0) + 1;
     discardCards(state, [p.card]);
     state.pending = null;
     return finishTurn(state, p.actorId, extraTurn, events);
@@ -859,5 +871,9 @@ export function serializeState(state, viewerId = null) {
     pending: serializePending(state.pending, viewerId, state),
     log: state.log.slice(-30),
     lastAction: state.lastAction || null,
+    // Reloj del turno: el cliente compara `turnDeadline - serverNow` con su
+    // propio reloj para corregir el desfase.
+    turnDeadline: state.turnDeadline || null,
+    serverNow: Date.now(),
   };
 }
