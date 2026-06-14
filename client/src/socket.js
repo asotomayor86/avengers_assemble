@@ -8,8 +8,22 @@ import { logoutNeon } from './auth.js';
 // evento socket.io se traduce a una llamada HTTP. La autenticación va por cookie
 // httpOnly (credentials: 'same-origin'), no por token en el cliente.
 
+// Prefijo de ruta del juego. Cuando assemble se sirve desde el hub via rewrite
+// (gamehub.family/assemble/...) las llamadas a /api/* deben llevar /assemble
+// delante para que el reescribir las lleve a este proyecto y no al hub. Si
+// estamos en el subdominio (assemble.gamehub.family) o en localhost/dev, el
+// prefijo queda vacío.
+function pathPrefix() {
+  if (typeof location === 'undefined') return '';
+  if (location.hostname === 'gamehub.family' && location.pathname.startsWith('/assemble')) {
+    return '/assemble';
+  }
+  return '';
+}
+
 async function http(method, path, body) {
-  const res = await fetch(path, {
+  const url = path.startsWith('/api/') ? pathPrefix() + path : path;
+  const res = await fetch(url, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -116,7 +130,7 @@ export async function logout() {
  * el servidor cierra el stream por fin de vida (~45 s). Devuelve una función para cancelar.
  */
 export function subscribeRoom(code, playerId, { onUpdate, onGone } = {}) {
-  const url = `/api/rooms/${encodeURIComponent(code)}/stream?playerId=${encodeURIComponent(
+  const url = `${pathPrefix()}/api/rooms/${encodeURIComponent(code)}/stream?playerId=${encodeURIComponent(
     playerId || ''
   )}`;
   const es = new EventSource(url, { withCredentials: true });
