@@ -336,7 +336,14 @@ export async function applyGameAction(code, playerId, action) {
   // el admin siempre puede registrar la partida a mano en el hub.
   if (enviarAlHub) {
     try {
-      const r = await submitHubResult(room.code, { kind: 'ranked', results: enviarAlHub });
+      // closeRoom=true: assemble solo envía el resultado al hub cuando la
+      // serie best-of-N ha terminado (ganadorSerie está fijado). Esa misma
+      // señal le dice al hub que cierre la sala de forma automática.
+      const r = await submitHubResult(room.code, {
+        kind: 'ranked',
+        results: enviarAlHub,
+        closeRoom: true,
+      });
       if (!r.ok) console.error('[hub] resultado rechazado:', r.status, r.error || '');
     } catch (err) {
       console.error('[hub] error enviando resultado:', err.message);
