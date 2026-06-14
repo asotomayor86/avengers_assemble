@@ -481,7 +481,10 @@ function handleCounterResponse(state, action, playerId, events) {
     if (!counter) throw new GameError('No tienes una carta de Contrarrestar.');
     takeFromHand(state, responderId, counter.id);
     discardCards(state, [counter]);
-    state.noDraw[responderId] = (state.noDraw[responderId] || 0) + 1; // tras Contrarrestar no roba
+    // Antes Contrarrestar penalizaba "robar 1 menos al cerrar el próximo turno";
+    // ahora el quien contrarresta solo pierde la carta de Doctor Strange y
+    // recupera las 3 cartas normales al terminar su jugada (mismo criterio que
+    // hicimos con Viuda Negra).
     log(state, events, `🛡️ ${name(state, responderId)} contrarresta ${play.card.name}.`);
     // Doctor Strange se ve sobre la zona (lado derecho) del atacante contrarrestado.
     state.lastAction = {
