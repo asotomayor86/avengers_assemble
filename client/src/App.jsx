@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { EVENTS, ROOM_STATUS } from '../../shared/constants.js';
-import { emitAsync, subscribeRoom, checkAuth, logout, enterHubRoom } from './socket.js';
+import { emitAsync, subscribeRoom, checkAuth, logout, enterHubRoom, setServerSession } from './socket.js';
+import { trySessionFromHub } from './auth.js';
 import { session } from './state/session.js';
 import LoginScreen from './pages/LoginScreen.jsx';
 import Lobby from './pages/Lobby.jsx';
@@ -84,40 +85,66 @@ function PlayerApp() {
   // Arranque: comprobar acceso (cookie) e intentar reconectar a la sala guardada.
   useEffect(() => {
     let cancelled = false;
-    checkAuth()
-      .then(({ isSite }) => {
+
+    const proceed = () => {
+      if (cancelled) return;
+      // Si el juego se abrió desde una sala del hub, entramos directos.
+      if (SALA_CODE) {
+        entrarEnSala(SALA_CODE);
+        return;
+      }
+      const saved = session.getRoom();
+      if (saved.code && saved.playerId) {
+        emitAsync(EVENTS.ROOM_RECONNECT, { code: saved.code, playerId: saved.playerId })
+          .then((res) => {
+            if (cancelled) return;
+            setRoom(res.room);
+            if (res.game) setGame(res.game);
+            setScreen('room');
+            startSub(saved.code, saved.playerId);
+          })
+          .catch(() => {
+            if (cancelled) return;
+            session.clearRoom();
+            setScreen('lobby');
+          });
+      } else {
+        setScreen('lobby');
+      }
+    };
+
+    (async () => {
+      try {
+        const r = await checkAuth();
         if (cancelled) return;
-        if (!isSite) {
-          setScreen('access');
+        if (r.isSite) {
+          proceed();
           return;
         }
-        // Si el juego se abrió desde una sala del hub, entramos directos.
-        if (SALA_CODE) {
-          entrarEnSala(SALA_CODE);
-          return;
+        // Sin cookie del juego: intentamos heredar la sesión del hub. Si el
+        // navegador la acepta cross-origin (SameSite=None o navegación
+        // top-level reciente), nos ahorramos el login.
+        const hubUser = await trySessionFromHub();
+        if (cancelled) return;
+        if (hubUser) {
+          try {
+            await setServerSession(hubUser);
+            const r2 = await checkAuth();
+            if (cancelled) return;
+            if (r2.isSite) {
+              proceed();
+              return;
+            }
+          } catch {
+            /* caemos al login con email+contraseña */
+          }
         }
-        const saved = session.getRoom();
-        if (saved.code && saved.playerId) {
-          emitAsync(EVENTS.ROOM_RECONNECT, { code: saved.code, playerId: saved.playerId })
-            .then((res) => {
-              if (cancelled) return;
-              setRoom(res.room);
-              if (res.game) setGame(res.game);
-              setScreen('room');
-              startSub(saved.code, saved.playerId);
-            })
-            .catch(() => {
-              if (cancelled) return;
-              session.clearRoom();
-              setScreen('lobby');
-            });
-        } else {
-          setScreen('lobby');
-        }
-      })
-      .catch(() => {
+        setScreen('access');
+      } catch {
         if (!cancelled) setScreen('access');
-      });
+      }
+    })();
+
     return () => {
       cancelled = true;
       stopSub();

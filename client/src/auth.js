@@ -38,3 +38,20 @@ export async function logoutNeon() {
     /* la cookie del juego se limpia aparte en /api/access */
   }
 }
+
+/**
+ * Si ya hay una sesión iniciada en el hub (cookie de Neon Auth presente en
+ * este navegador para el dominio del hub), devuelve {id, name}. Si no, null.
+ * Se usa para evitar pedir email+contraseña otra vez al entrar en el juego
+ * desde una invitación del hub.
+ */
+export async function trySessionFromHub() {
+  try {
+    const res = await authClient.getSession();
+    const user = res?.data?.user ?? res?.data?.session?.user ?? res?.user;
+    if (!user?.id) return null;
+    return { id: user.id, name: user.name || user.email || '' };
+  } catch {
+    return null;
+  }
+}

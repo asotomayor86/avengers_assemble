@@ -311,8 +311,11 @@ export default function GameBoard({ room, game, myId, onLeave }) {
         </div>
       )}
 
-      {/* Al terminar la partida, las zonas y la mano desaparecen (pantalla de victoria limpia). */}
-      {!finished && (
+      {/* Mantenemos el tablero visible durante la pausa de 2 s del fin de
+          partida (showEnd aún false), para que dé tiempo a ver cómo ha
+          quedado la mesa con la última carta. Al mostrar EndOverlay sí lo
+          ocultamos. */}
+      {!showEnd && (
       <>
       {/* Zonas rivales: se apilan arriba y hacen scroll si hay muchas. */}
       <div className="opponents-scroll">
