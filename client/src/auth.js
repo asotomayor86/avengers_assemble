@@ -6,12 +6,12 @@ import { createAuthClient } from '@neondatabase/auth';
 // (cookie aa_user en su dominio) llamando a /api/access.
 //
 // Configura VITE_NEON_AUTH_URL en el juego (build) = https://<hub>/api/auth.
-// Si el juego se sirve bajo familyhub.app, el fallback apunta al hub en la
-// raíz para que la cookie de Neon Auth (Domain=.familyhub.app) se comparta.
+// Si el juego se sirve bajo gamehub.family, el fallback apunta al hub en la
+// raíz para que la cookie de Neon Auth (Domain=.gamehub.family) se comparta.
 // Si se sirve desde la URL de Vercel, mantenemos el fallback antiguo.
 const fallbackHubUrl =
-  typeof location !== 'undefined' && location.hostname.endsWith('familyhub.app')
-    ? 'https://familyhub.app'
+  typeof location !== 'undefined' && location.hostname.endsWith('gamehub.family')
+    ? 'https://gamehub.family'
     : 'https://one-page-to-rule-them-all.vercel.app';
 
 const NEON_AUTH_URL =
