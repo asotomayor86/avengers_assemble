@@ -5,10 +5,17 @@ import { createAuthClient } from '@neondatabase/auth';
 // real contra Neon Auth; con el userId resultante, el juego fija su propia sesión
 // (cookie aa_user en su dominio) llamando a /api/access.
 //
-// Configura VITE_NEON_AUTH_URL en el juego (build) = https://<hub>/api/auth
+// Configura VITE_NEON_AUTH_URL en el juego (build) = https://<hub>/api/auth.
+// Si el juego se sirve bajo familyhub.app, el fallback apunta al hub en la
+// raíz para que la cookie de Neon Auth (Domain=.familyhub.app) se comparta.
+// Si se sirve desde la URL de Vercel, mantenemos el fallback antiguo.
+const fallbackHubUrl =
+  typeof location !== 'undefined' && location.hostname.endsWith('familyhub.app')
+    ? 'https://familyhub.app'
+    : 'https://one-page-to-rule-them-all.vercel.app';
+
 const NEON_AUTH_URL =
-  import.meta.env.VITE_NEON_AUTH_URL ||
-  'https://one-page-to-rule-them-all.vercel.app/api/auth';
+  import.meta.env.VITE_NEON_AUTH_URL || `${fallbackHubUrl}/api/auth`;
 
 // URL base del hub (sin el sufijo /api/auth). Se usa para devolver al jugador al
 // hub al terminar un partido de liga.
