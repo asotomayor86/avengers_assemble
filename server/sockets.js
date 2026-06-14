@@ -66,27 +66,23 @@ export function registerSocketHandlers(io) {
     const isAdmin = socket.data.role === ROLE.ADMIN;
 
     // --- Jugador ---
+    // ROOM_CREATE y ROOM_JOIN están deshabilitados: las salas siempre vienen del
+    // hub. Se entra vía POST /api/rooms/{code}/enter (ver enterHubRoom).
     socket.on(
       EVENTS.ROOM_CREATE,
-      handle(async ({ nickname }) => {
-        const { room, playerId } = createRoom(nickname);
-        socket.data.roomCode = room.code;
-        socket.data.playerId = playerId;
-        socket.join(room.code);
-        broadcastRoom(io, room);
-        return { roomCode: room.code, playerId, room: serializeRoom(room) };
+      handle(async () => {
+        throw new RoomError(
+          'Las salas se crean en el hub. Entra desde la sala que te hayan asignado.',
+        );
       })
     );
 
     socket.on(
       EVENTS.ROOM_JOIN,
-      handle(async ({ code, nickname }) => {
-        const { room, playerId } = joinRoom(code, nickname);
-        socket.data.roomCode = room.code;
-        socket.data.playerId = playerId;
-        socket.join(room.code);
-        broadcastRoom(io, room);
-        return { roomCode: room.code, playerId, room: serializeRoom(room) };
+      handle(async () => {
+        throw new RoomError(
+          'Las salas se gestionan en el hub. Entra desde la sala que te hayan asignado.',
+        );
       })
     );
 

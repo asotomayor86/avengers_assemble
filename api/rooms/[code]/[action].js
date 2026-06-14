@@ -2,7 +2,6 @@ import { wrap, methodGuard } from '../../_lib/handler.js';
 import { requireSite } from '../../_lib/auth.js';
 import { getHubRoom } from '../../_lib/hub.js';
 import {
-  joinRoom,
   reconnect,
   startGame,
   nextGame,
@@ -61,10 +60,10 @@ export default wrap(async (req, res) => {
       });
     }
     case 'join': {
-      const { room, playerId, version } = await joinRoom(code, body.nickname);
-      return res
-        .status(200)
-        .json({ code: room.code, playerId, version, room: serializeRoom(room) });
+      // Deshabilitado: las salas se crean en el hub y se entra vía `enter`.
+      return res.status(403).json({
+        error: 'Las salas se gestionan desde el hub. Entra por el enlace de la sala.',
+      });
     }
     case 'reconnect': {
       const { room, version } = await reconnect(code, body.playerId);
